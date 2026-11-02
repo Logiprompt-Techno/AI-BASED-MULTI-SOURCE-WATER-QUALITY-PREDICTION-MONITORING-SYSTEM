@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 800px; margin: 2rem auto;">
+    <h2 style="text-align: center; margin-bottom: 2rem; color: var(--accent-primary);">About AquaGuard AI</h2>
+    
+    <div style="margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1rem;">The Importance of Water Quality Monitoring</h3>
+        <p style="color: var(--text-secondary); line-height: 1.6;">
+            Clean and safe water is essential for human health, agriculture, and the environment. 
+            Contaminated water can lead to severe health issues and ecosystem damage. Regular monitoring 
+            is crucial to detect pollution early and ensure that water sources remain safe for their intended use.
+        </p>
+    </div>
+
+    <div style="margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1rem;">How AI Detects Pollution</h3>
+        <p style="color: var(--text-secondary); line-height: 1.6;">
+            Our system utilizes a state-of-the-art Random Forest Machine Learning model trained on historical 
+            water quality data. By analyzing multiple parameters such as Temperature, Dissolved Oxygen (DO), 
+            pH, Biological Oxygen Demand (BOD), and various coliform counts, the AI can detect complex patterns 
+            indicative of pollution. It predicts whether a given sample is SAFE or UNSAFE with high accuracy 
+            and determines the severity of the pollution.
+        </p>
+    </div>
+
+    <div>
+        <h3 style="margin-bottom: 1rem;">Supported Water Sources</h3>
+        <ul style="color: var(--text-secondary); line-height: 1.6; list-style-type: disc; padding-left: 2rem;">
+            <li><strong>Well Water:</strong> Ground water that can be affected by chemical runoff.</li>
+            <li><strong>River Water:</strong> Highly susceptible to agricultural and industrial discharge.</li>
+            <li><strong>Tap Water:</strong> Monitored to ensure municipal supply safety.</li>
+            <li><strong>Lake Water:</strong> Standing water prone to algae blooms and stagnation.</li>
+            <li><strong>Industrial Water:</strong> Discharge that must be treated before environmental release.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

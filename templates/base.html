@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Water Quality Monitor{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Global Loading Spinner -->
+    <div id="global-loader" class="loader-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            {% if session.get('role') == 'admin' %}
+            <a href="{{ url_for('admin_dashboard') }}" class="logo">
+                <i class="fa-solid fa-user-shield"></i> AquaGuard Admin
+            </a>
+            {% else %}
+            <a href="{{ url_for('index') }}" class="logo">
+                <i class="fa-solid fa-droplet"></i> AquaGuard AI
+            </a>
+            {% endif %}
+            
+            <!-- Hamburger Icon for Mobile -->
+            <div class="hamburger" id="hamburger" onclick="document.getElementById('navLinks').classList.toggle('nav-active')">
+                <i class="fa-solid fa-bars"></i>
+            </div>
+            
+            <ul class="nav-links" id="navLinks">
+                {% if session.get('role') == 'admin' %}
+                <li><a href="{{ url_for('admin_dashboard') }}" class="nav-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">Dashboard</a></li>
+                <li><a href="{{ url_for('admin_inspectors') }}" class="nav-item {% if request.endpoint == 'admin_inspectors' %}active{% endif %}">Inspectors</a></li>
+                <li><a href="{{ url_for('admin_appointments') }}" class="nav-item {% if request.endpoint == 'admin_appointments' %}active{% endif %}">Appointments</a></li>
+                <li><a href="{{ url_for('admin_feedbacks') }}" class="nav-item {% if request.endpoint == 'admin_feedbacks' %}active{% endif %}">Feedbacks</a></li>
+                
+                <!-- Admin Dropdown -->
+                <li style="position: relative;" class="dropdown-wrapper">
+                    <a href="javascript:void(0)" class="nav-item" onclick="toggleProfileDropdown(event)" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-user-circle" style="font-size: 1.25rem; color: var(--accent-primary);"></i>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem;"></i>
+                    </a>
+                    <div id="adminProfileDropdown" class="glass-card" style="display: none; position: absolute; right: 0; top: 120%; min-width: 180px; padding: 0.5rem; z-index: 1000; flex-direction: column; gap: 0.25rem;">
+                        <a href="{{ url_for('admin_profile') }}" style="padding: 0.5rem 1rem; color: var(--text-primary); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-user-shield"></i> Admin Profile</a>
+                        <a href="#" style="padding: 0.5rem 1rem; color: var(--text-secondary); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-cog"></i> Settings</a>
+                        <div style="border-top: 1px solid var(--glass-border); margin: 0.25rem 0;"></div>
+                        <a href="{{ url_for('logout') }}" style="padding: 0.5rem 1rem; color: var(--danger); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
+                    </div>
+                </li>
+                {% elif session.get('role') == 'inspector' %}
+                <li><a href="{{ url_for('inspector_dashboard') }}" class="nav-item {% if request.endpoint == 'inspector_dashboard' %}active{% endif %}">Dashboard</a></li>
+                <li><a href="{{ url_for('inspector_field_inspections') }}" class="nav-item {% if request.endpoint in ('inspector_field_inspections', 'inspector_field_inspection') %}active{% endif %}">Field Inspection</a></li>
+                <li><a href="{{ url_for('inspector_online_inspections') }}" class="nav-item {% if request.endpoint == 'inspector_online_inspections' %}active{% endif %}">Online Inspection</a></li>
+                <li><a href="{{ url_for('inspector_history') }}" class="nav-item {% if request.endpoint == 'inspector_history' %}active{% endif %}">Inspection History</a></li>
+                <li style="position: relative;" class="dropdown-wrapper">
+                    <a href="javascript:void(0)" class="nav-item" onclick="toggleProfileDropdown(event)" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-user-circle" style="font-size: 1.25rem; color: var(--accent-primary);"></i>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem;"></i>
+                    </a>
+                    <div id="inspectorProfileDropdown" class="glass-card" style="display: none; position: absolute; right: 0; top: 120%; min-width: 180px; padding: 0.5rem; z-index: 1000; flex-direction: column; gap: 0.25rem;">
+                        <a href="{{ url_for('inspector_profile') }}" style="padding: 0.5rem 1rem; color: var(--text-primary); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-user"></i> My Profile</a>
+                        <a href="{{ url_for('inspector_profile') }}#password" style="padding: 0.5rem 1rem; color: var(--text-primary); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-key"></i> Change Password</a>
+                        <div style="border-top: 1px solid var(--glass-border); margin: 0.25rem 0;"></div>
+                        <a href="{{ url_for('inspector_logout') }}" style="padding: 0.5rem 1rem; color: var(--danger); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
+                    </div>
+                </li>
+                {% else %}
+                <li><a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">Home</a></li>
+                <li><a href="{{ url_for('about') }}" class="nav-item {% if request.endpoint == 'about' %}active{% endif %}">About</a></li>
+                <li><a href="{{ url_for('predict') }}" class="nav-item {% if request.endpoint == 'predict' %}active{% endif %}">Predict</a></li>
+
+                {% if session.get('user_id') %}
+                <li><a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a></li>
+                <li><a href="{{ url_for('history') }}" class="nav-item {% if request.endpoint == 'history' %}active{% endif %}">History</a></li>
+                
+                <!-- User Dropdown -->
+                <li style="position: relative;" class="dropdown-wrapper">
+                    <a href="javascript:void(0)" class="nav-item" onclick="toggleProfileDropdown(event)" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-user-circle" style="font-size: 1.25rem; color: var(--accent-primary);"></i>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem;"></i>
+                    </a>
+                    <div id="userProfileDropdown" class="glass-card" style="display: none; position: absolute; right: 0; top: 120%; min-width: 180px; padding: 0.5rem; z-index: 1000; flex-direction: column; gap: 0.25rem;">
+                        <a href="{{ url_for('user_profile') }}" style="padding: 0.5rem 1rem; color: var(--text-primary); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-user"></i> My Profile</a>
+                        <a href="{{ url_for('user_messages') }}" style="padding: 0.5rem 1rem; color: var(--text-primary); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-envelope"></i> My Messages</a>
+                        <a href="#" style="padding: 0.5rem 1rem; color: var(--text-secondary); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-cog"></i> Settings</a>
+                        <div style="border-top: 1px solid var(--glass-border); margin: 0.25rem 0;"></div>
+                        <a href="{{ url_for('logout') }}" style="padding: 0.5rem 1rem; color: var(--danger); border-radius: 0.25rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
+                    </div>
+                </li>
+                {% else %}
+                <li><a href="{{ url_for('login') }}" class="nav-item {% if request.endpoint == 'login' %}active{% endif %}">Login</a></li>
+                <li><a href="{{ url_for('register') }}" class="nav-item {% if request.endpoint == 'register' %}active{% endif %}">Register</a></li>
+                {% endif %}
+                
+                <li><a href="{{ url_for('contact') }}" class="nav-item {% if request.endpoint == 'contact' %}active{% endif %}">Contact</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2026 AquaGuard AI. All rights reserved.</p>
+    </footer>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        function toggleProfileDropdown(event) {
+            event.preventDefault();
+            const wrapper = event.target.closest('.dropdown-wrapper');
+            const dropdown = wrapper ? wrapper.querySelector('.glass-card') : null;
+            if (dropdown) {
+                if (dropdown.style.display === 'none') {
+                    dropdown.style.display = 'flex';
+                } else {
+                    dropdown.style.display = 'none';
+                }
+            }
+        }
+
+        // Close dropdown when clicking outside
+        window.onclick = function(event) {
+            if (!event.target.closest('.dropdown-wrapper')) {
+                const dropdowns = document.querySelectorAll('.dropdown-wrapper .glass-card');
+                dropdowns.forEach(d => {
+                    if (d.style.display === 'flex') {
+                        d.style.display = 'none';
+                    }
+                });
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='validation.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+
+    <!-- AI Chat Assistant Widget -->
+    <div class="chat-widget" id="chatWidget">
+        <div class="chat-header" onclick="toggleChat()">
+            <i class="fa-solid fa-robot"></i> AI Assistant
+            <i class="fa-solid fa-chevron-up" id="chatToggleIcon"></i>
+        </div>
+        <div class="chat-body" id="chatBody" style="display: none;">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message ai">Hi! Ask me anything about water quality, pH, or WQI.</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+                <button onclick="sendChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

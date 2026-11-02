@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Override main-content container to allow full-width hero and spacious sections */
+    .main-content {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Water Source Sections Styling */
+    .water-details-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 4rem 1.5rem 6rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 5rem;
+    }
+
+    .water-section {
+        text-align: center;
+        opacity: 0;
+        transform: translateY(30px);
+        transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        padding: 2.5rem;
+        border-radius: 1.5rem;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .water-section.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .water-section-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        margin-bottom: 2rem;
+        color: #f8fafc;
+        text-transform: uppercase;
+        position: relative;
+        display: inline-block;
+    }
+
+    .water-section-title::after {
+        content: '';
+        display: block;
+        width: 60px;
+        height: 3px;
+        background: var(--accent-primary);
+        margin: 0.5rem auto 0 auto;
+        border-radius: 2px;
+        box-shadow: 0 0 10px var(--accent-primary);
+    }
+
+    .water-image-wrapper {
+        width: 100%;
+        max-width: 850px;
+        margin: 0 auto 2rem auto;
+        overflow: hidden;
+        border-radius: 1.25rem;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--glass-border);
+        transition: transform 0.4s ease, box-shadow 0.4s ease;
+    }
+
+    .water-image-wrapper:hover {
+        transform: scale(1.015);
+        box-shadow: 0 16px 48px rgba(59, 130, 246, 0.25);
+    }
+
+    .water-image {
+        width: 100%;
+        height: 440px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .water-description {
+        max-width: 70%;
+        margin: 0 auto;
+        font-size: 1.05rem;
+        line-height: 1.85;
+        color: #cbd5e1;
+        text-align: center;
+        font-weight: 400;
+    }
+
+    @media (max-width: 992px) {
+        .water-description {
+            max-width: 85%;
+        }
+        .water-image {
+            height: 350px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .water-details-container {
+            padding: 3rem 1rem;
+            gap: 3.5rem;
+        }
+        .water-section {
+            padding: 1.5rem 1rem;
+        }
+        .water-section-title {
+            font-size: 1.75rem;
+        }
+        .water-description {
+            max-width: 100%;
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+        .water-image {
+            height: 250px;
+        }
+    }
+</style>
+
+<section class="hero">
+    <div class="hero-content-wrapper">
+        <h1 style="text-shadow: 0 4px 12px rgba(0,0,0,0.5);">AI-Powered Water Quality Monitoring</h1>
+        <p style="text-shadow: 0 2px 8px rgba(0,0,0,0.5); color: #e2e8f0;">Analyze water quality from multiple sources and predict safety using Artificial Intelligence.</p>
+        <div class="hero-buttons">
+            <a href="{{ url_for('predict') }}" class="btn btn-primary" onclick="showLoader()">Check Water Quality</a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline" onclick="showLoader()">View Dashboard</a>
+        </div>
+    </div>
+</section>
+
+<section class="sources-section" style="padding-top: 3.5rem; padding-bottom: 1rem;">
+    <h2 style="text-align: center; margin-bottom: 1rem; font-size: 2.25rem;">Select Water Source</h2>
+    <div class="sources-grid" style="max-width: 1100px; margin: 2rem auto 0 auto; padding: 0 1.5rem;">
+        <!-- Well Water -->
+        <a href="{{ url_for('predict', source='Well Water') }}" class="source-card glass-card">
+            <i class="fa-solid fa-droplet" style="color: #60a5fa;"></i>
+            <h3>Well Water</h3>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">Deep underground source</p>
+        </a>
+        
+        <!-- River Water -->
+        <a href="{{ url_for('predict', source='River Water') }}" class="source-card glass-card">
+            <i class="fa-solid fa-water" style="color: #34d399;"></i>
+            <h3>River Water</h3>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">Flowing surface water</p>
+        </a>
+        
+        <!-- Tap Water -->
+        <a href="{{ url_for('predict', source='Tap Water') }}" class="source-card glass-card">
+            <i class="fa-solid fa-faucet-drip" style="color: #fbbf24;"></i>
+            <h3>Tap Water</h3>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">Municipal supply</p>
+        </a>
+        
+        <!-- Lake Water -->
+        <a href="{{ url_for('predict', source='Lake Water') }}" class="source-card glass-card">
+            <i class="fa-solid fa-water" style="color: #818cf8;"></i>
+            <h3>Lake Water</h3>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">Standing surface water</p>
+        </a>
+        
+        <!-- Industrial Water -->
+        <a href="{{ url_for('predict', source='Industrial Water') }}" class="source-card glass-card">
+            <i class="fa-solid fa-industry" style="color: #f87171;"></i>
+            <h3>Industrial Water</h3>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">Factory discharge</p>
+        </a>
+    </div>
+</section>
+
+<!-- Five Vertically Arranged Water Source Sections -->
+<div class="water-details-container">
+    <!-- 1. WELL WATER -->
+    <section class="water-section" id="well-water-section">
+        <h2 class="water-section-title">Well Water</h2>
+        <div class="water-image-wrapper">
+            <img src="{{ url_for('static', filename='images/well_water.png') }}" alt="Well Water Source" class="water-image">
+        </div>
+        <p class="water-description">
+            Well water is obtained from underground water sources and is commonly used for drinking, household activities, and agriculture. Its quality can be influenced by soil conditions, nearby drainage, sewage leakage, and natural minerals. Contamination may introduce harmful microorganisms or increase certain chemical parameters. AquaGuard AI helps assess the quality of well water and identify potential safety concerns.
+        </p>
+    </section>
+
+    <!-- 2. RIVER WATER -->
+    <section class="water-section" id="river-water-section">
+        <h2 class="water-section-title">River Water</h2>
+        <div class="water-image-wrapper">
+            <img src="{{ url_for('static', filename='images/river_water.png') }}" alt="River Water Source" class="water-image">
+        </div>
+        <p class="water-description">
+            River water is an important surface-water source used for domestic, agricultural, and industrial purposes. Its quality can change due to wastewater discharge, agricultural runoff, industrial pollution, and other environmental activities. Increased turbidity, chemical contamination, and harmful microorganisms can affect its safety. AquaGuard AI helps monitor river-water quality and identify possible contamination.
+        </p>
+    </section>
+
+    <!-- 3. TAP WATER -->
+    <section class="water-section" id="tap-water-section">
+        <h2 class="water-section-title">Tap Water</h2>
+        <div class="water-image-wrapper">
+            <img src="{{ url_for('static', filename='images/tap_water.png') }}" alt="Tap Water Source" class="water-image">
+        </div>
+        <p class="water-description">
+            Tap water is generally treated before it reaches households through a distribution system. However, contamination can occur because of damaged pipelines, leakage, poor storage conditions, or prolonged stagnation. Changes in physical, chemical, or microbiological parameters can affect water safety. AquaGuard AI helps users evaluate the quality of their tap water and detect potential issues.
+        </p>
+    </section>
+
+    <!-- 4. LAKE WATER -->
+    <section class="water-section" id="lake-water-section">
+        <h2 class="water-section-title">Lake Water</h2>
+        <div class="water-image-wrapper">
+            <img src="{{ url_for('static', filename='images/lake_water.png') }}" alt="Lake Water Source" class="water-image">
+        </div>
+        <p class="water-description">
+            Lake water is a surface-water source that can be affected by natural conditions and human activities around the lake. Agricultural runoff, wastewater, waste disposal, algae growth, and microbial contamination can reduce water quality. Changes in turbidity, pH, dissolved substances, and microorganisms may indicate pollution. AquaGuard AI helps assess lake-water quality and identify possible risks.
+        </p>
+    </section>
+
+    <!-- 5. INDUSTRIAL WATER -->
+    <section class="water-section" id="industrial-water-section">
+        <h2 class="water-section-title">Industrial Water</h2>
+        <div class="water-image-wrapper">
+            <img src="{{ url_for('static', filename='images/industrial_water.png') }}" alt="Industrial Water Source" class="water-image">
+        </div>
+        <p class="water-description">
+            Industrial water can be influenced by manufacturing processes, chemical use, and industrial discharge. Improperly treated wastewater may contain excessive dissolved substances, chemicals, or other contaminants that can affect surrounding water resources. Regular monitoring is therefore important to identify changes in water quality. AquaGuard AI helps analyze industrial-water parameters and highlight potential contamination risks.
+        </p>
+    </section>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Scroll reveal animation for water sections
+    const observerOptions = {
+        root: null,
+        rootMargin: "0px",
+        threshold: 0.15
+    };
+
+    const revealObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+
+    document.querySelectorAll(".water-section").forEach(section => {
+        revealObserver.observe(section);
+    });
+});
+</script>
+{% endblock %}

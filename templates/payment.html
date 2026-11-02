@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}Secure Payment | AquaGuard AI{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 70vh; padding: 2rem 0;">
+    <div class="glass-card" style="width: 100%; max-width: 550px; padding: 2.5rem;">
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <h2>AquaGuard AI</h2>
+            <p style="color: var(--text-secondary);">Secure Payment Gateway (UPI)</p>
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 1rem 0;">
+        </div>
+
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <p style="color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Report Access Fee</p>
+            <h1 style="font-size: 3rem; color: var(--accent-primary); margin: 0.5rem 0;">₹{{ amount }}</h1>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <!-- Step 1: Form & Payment Method Selection -->
+        <div id="paymentSelectionStep">
+            <form id="upiForm" onsubmit="return false;">
+                <input type="hidden" name="csrf_token" id="csrf_token" value="{{ csrf_token() }}"/>
+                
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Full Name</label>
+                    <input type="text" name="name" id="name" class="form-control" required pattern="^[a-zA-Z\s]{3,}$" title="Name must contain only alphabets and spaces, min 3 characters" value="{{ session.name }}">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Email Address</label>
+                    <input type="email" name="email" id="email" class="form-control" required value="{{ session.email }}">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone" id="phone" class="form-control" required pattern="^\d{10}$" title="Phone number must be exactly 10 digits" value="{{ session.mobile or session.phone or '' }}">
+                </div>
+
+                <div style="margin-bottom: 1rem; text-align: center;">
+                    <label style="font-weight: 600; display: block; margin-bottom: 0.75rem; color: var(--text-primary);">Choose Payment Method</label>
+                    <div style="display: flex; gap: 1rem; justify-content: center;">
+                        <button type="button" id="btnGpay" class="btn btn-outline" style="flex: 1; padding: 0.85rem; font-weight: 600; border-color: #4285F4; color: #60a5fa; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="initiateUpi('Google Pay')">
+                            <i class="fa-brands fa-google-pay" style="font-size: 1.5rem;"></i> GPay
+                        </button>
+                        <button type="button" id="btnPhonepe" class="btn btn-outline" style="flex: 1; padding: 0.85rem; font-weight: 600; border-color: #5f259f; color: #c084fc; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="initiateUpi('PhonePe')">
+                            <i class="fa-solid fa-mobile-screen-button"></i> PhonePe
+                        </button>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin: 1rem 0; color: var(--text-secondary); font-size: 0.9rem;">
+                    &mdash; <strong>or</strong> &mdash;
+                </div>
+
+                <button type="button" id="btnQr" class="btn btn-primary btn-block" style="font-size: 1.05rem; padding: 0.9rem;" onclick="initiateUpi('UPI QR')">
+                    <i class="fa-solid fa-qrcode"></i> Scan UPI QR
+                </button>
+            </form>
+        </div>
+
+        <!-- Step 2: Payment Pending & Verification View -->
+        <div id="paymentPendingStep" style="display: none; text-align: center;">
+            <div style="padding: 1.5rem; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 0.75rem; margin-bottom: 1.5rem;">
+                
+                <div id="statusBadgeContainer" style="margin-bottom: 1rem;">
+                    <span class="badge badge-warning" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">
+                        <i class="fa-solid fa-clock fa-spin"></i> Payment Pending
+                    </span>
+                </div>
+
+                <div id="qrCodeWrapper" style="margin: 0 auto 1.25rem auto; display: none; width: 200px; height: 200px; padding: 10px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); justify-content: center; align-items: center;">
+                    <div id="qrCodeContainer" style="width: 180px; height: 180px;"></div>
+                </div>
+
+                <div id="appLaunchContainer" style="margin-bottom: 1.25rem; display: none;">
+                    <a id="appLaunchBtn" href="#" target="_blank" class="btn btn-primary btn-block" style="font-size: 1rem; padding: 0.85rem;">
+                        <i class="fa-solid fa-external-link"></i> Open <span id="appNameSpan">UPI App</span>
+                    </a>
+                </div>
+
+                <div style="text-align: left; font-size: 0.9rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; background: rgba(0,0,0,0.25); padding: 1rem; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Merchant UPI ID:</span>
+                        <strong style="color: var(--text-primary); font-family: monospace;" id="displayUpiId">{{ upi_id }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Amount:</span>
+                        <strong style="color: var(--accent-primary);">₹{{ amount }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Transaction Ref:</span>
+                        <strong style="color: var(--text-primary); font-family: monospace; font-size: 0.8rem;" id="displayTxnRef">--</strong>
+                    </div>
+                </div>
+
+                <div style="text-align: left;">
+                    <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary); margin-bottom: 0.4rem; display: block;">
+                        Enter 12-Digit UPI UTR / Ref No.
+                    </label>
+                    <input type="text" id="utrInput" class="form-control" placeholder="e.g. 324567890123" maxlength="20" style="letter-spacing: 1px; font-family: monospace; font-size: 1rem;">
+                    <small style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 0.35rem; display: block;">
+                        After completing payment in your GPay / PhonePe / UPI app, enter the 12-digit UTR/Ref number and click Verify Payment.
+                    </small>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem;">
+                <button type="button" class="btn btn-success" style="flex: 2; padding: 0.85rem; font-size: 1rem; background: #10b981; color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;" id="verifyBtn" onclick="verifyPayment()">
+                    <i class="fa-solid fa-circle-check"></i> Verify Payment
+                </button>
+                <button type="button" class="btn btn-outline" style="flex: 1; padding: 0.85rem; font-size: 0.9rem; color: #f87171; border-color: #ef4444;" onclick="cancelPayment()">
+                    Cancel
+                </button>
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem; padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: 0.5rem; border: 1px solid rgba(16, 185, 129, 0.2);">
+            <p style="color: var(--success); font-size: 0.85rem; margin: 0; text-align: center;">
+                <strong><i class="fa-solid fa-shield-halved"></i> SECURE UPI TRANSACTION</strong><br>
+                Your transaction is protected via 256-bit encrypted NPCI UPI Protocol.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    let activeTxnRef = '';
+    let activeMethod = '';
+    const reportId = {{ report_id }};
+
+    function showAlert(message, type = 'danger') {
+        const container = document.getElementById('alertContainer');
+        const bgColor = type === 'danger' ? 'rgba(239, 68, 68, 0.2)' : (type === 'warning' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)');
+        const borderColor = type === 'danger' ? 'rgba(239, 68, 68, 0.4)' : (type === 'warning' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)');
+        const textColor = type === 'danger' ? '#f87171' : (type === 'warning' ? '#fbbf24' : '#34d399');
+        const icon = type === 'danger' ? 'fa-circle-exclamation' : (type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-check');
+        
+        container.innerHTML = `
+            <div class="alert alert-${type}" style="padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 1rem; background: ${bgColor}; border: 1px solid ${borderColor}; color: ${textColor}; text-align: left;">
+                <i class="fa-solid ${icon}"></i> ${message}
+            </div>
+        `;
+    }
+
+    async function initiateUpi(method) {
+        const alertContainer = document.getElementById('alertContainer');
+        alertContainer.innerHTML = '';
+
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const phone = document.getElementById('phone').value.trim();
+        const csrfToken = document.getElementById('csrf_token').value;
+
+        if (!name || name.length < 3 || !/^[a-zA-Z\s]+$/.test(name)) {
+            showAlert('Please enter a valid full name (letters and spaces, min 3 chars).');
+            return;
+        }
+
+        if (!email || !/[^@]+@[^@]+\.[^@]+/.test(email)) {
+            showAlert('Please enter a valid email address.');
+            return;
+        }
+
+        if (!phone || !/^\d{10}$/.test(phone)) {
+            showAlert('Please enter a valid 10-digit phone number.');
+            return;
+        }
+
+        activeMethod = method;
+
+        try {
+            const response = await fetch("{{ url_for('process_payment', report_id=report_id) }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ name, email, phone, payment_method: method })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                showAlert(data.error || 'Failed to initialize UPI payment.');
+                return;
+            }
+
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+                return;
+            }
+
+            activeTxnRef = data.txn_ref;
+            document.getElementById('displayTxnRef').innerText = data.txn_ref;
+
+            // Switch to Pending View
+            document.getElementById('paymentSelectionStep').style.display = 'none';
+            document.getElementById('paymentPendingStep').style.display = 'block';
+
+            const qrWrapper = document.getElementById('qrCodeWrapper');
+            const appContainer = document.getElementById('appLaunchContainer');
+            const qrContainer = document.getElementById('qrCodeContainer');
+            const appLaunchBtn = document.getElementById('appLaunchBtn');
+            const appNameSpan = document.getElementById('appNameSpan');
+
+            qrContainer.innerHTML = '';
+            qrWrapper.style.display = 'none';
+            appContainer.style.display = 'none';
+
+            if (method === 'UPI QR') {
+                qrWrapper.style.display = 'flex';
+                renderQrCode(data.upi_uri);
+            } else {
+                appContainer.style.display = 'block';
+                appNameSpan.innerText = method;
+                
+                const targetUri = method === 'Google Pay' ? (data.gpay_uri || data.upi_uri) : (data.phonepe_uri || data.upi_uri);
+                appLaunchBtn.href = targetUri;
+
+                // Try auto launching on mobile devices
+                if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                    window.location.href = targetUri;
+                }
+            }
+
+        } catch (err) {
+            showAlert('An unexpected error occurred. Please try again.');
+        }
+    }
+
+    function renderQrCode(upiUri) {
+        const qrContainer = document.getElementById('qrCodeContainer');
+        qrContainer.innerHTML = '';
+
+        if (typeof QRCode !== 'undefined') {
+            try {
+                new QRCode(qrContainer, {
+                    text: upiUri,
+                    width: 180,
+                    height: 180,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+                return;
+            } catch (e) {
+                console.warn('QRCode JS render error, using image fallback');
+            }
+        }
+        
+        // Dynamic image fallback
+        const img = document.createElement('img');
+        img.src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(upiUri);
+        img.alt = "UPI Payment QR Code";
+        img.style.width = "180px";
+        img.style.height = "180px";
+        qrContainer.appendChild(img);
+    }
+
+    async function verifyPayment() {
+        const utrInput = document.getElementById('utrInput');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const utrVal = utrInput.value.trim();
+
+        if (!utrVal || utrVal.length < 6) {
+            showAlert('Please enter a valid 12-digit UPI UTR / Ref No from your payment app.', 'warning');
+            return;
+        }
+
+        verifyBtn.disabled = true;
+        verifyBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...';
+
+        try {
+            const response = await fetch("{{ url_for('verify_upi_payment') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    report_id: reportId,
+                    transaction_ref: activeTxnRef,
+                    utr_number: utrVal,
+                    payment_method: activeMethod
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'success') {
+                const statusContainer = document.getElementById('statusBadgeContainer');
+                statusContainer.innerHTML = `
+                    <span class="badge badge-success" style="font-size: 1rem; padding: 0.5rem 1rem; background: #10b981; color: white;">
+                        <i class="fa-solid fa-circle-check"></i> Payment Successful
+                    </span>
+                `;
+                showAlert('Payment verified successfully! Redirecting...', 'success');
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 1000);
+            } else {
+                showAlert(data.message || 'Payment verification failed. Please check the UTR number and try again.', 'danger');
+                verifyBtn.disabled = false;
+                verifyBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Verify Payment';
+            }
+        } catch (err) {
+            showAlert('Error connecting to verification server.', 'danger');
+            verifyBtn.disabled = false;
+            verifyBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Verify Payment';
+        }
+    }
+
+    async function cancelPayment() {
+        if (!confirm('Are you sure you want to cancel this payment?')) return;
+
+        try {
+            await fetch("{{ url_for('verify_upi_payment') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    report_id: reportId,
+                    transaction_ref: activeTxnRef,
+                    action: 'cancel'
+                })
+            });
+        } catch (e) {}
+
+        document.getElementById('paymentPendingStep').style.display = 'none';
+        document.getElementById('paymentSelectionStep').style.display = 'block';
+        showAlert('Payment was cancelled. You can try again.', 'warning');
+    }
+</script>
+{% endblock %}

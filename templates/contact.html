@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="predict-container" style="max-width: 1000px;">
+    <div class="auth-header">
+        <h2>Contact Us</h2>
+        <p>Get in touch with the AquaGuard AI team</p>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <div class="glass-card">
+            <h3>Send us a message</h3>
+            <form action="{{ url_for('contact') }}" method="POST" id="contactForm" style="margin-top: 1.5rem;" onsubmit="return handleContactSubmit(event)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="form-group">
+                    <label for="name">Your Name <span style="color:red;">*</span></label>
+                    <input type="text" id="name" name="name" class="form-control" required placeholder="Enter your name" value="{{ request.form.get('name', '') }}">
+                    <div class="validation-message" id="nameError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Name must contain letters and spaces only.</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address <span style="color:red;">*</span></label>
+                    <input type="email" id="email" name="email" class="form-control" required placeholder="Enter your email" value="{{ request.form.get('email', '') }}">
+                    <div class="validation-message" id="emailError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Please enter a valid Gmail address ending with @gmail.com.</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="subject">Subject <span style="color:red;">*</span></label>
+                    <input type="text" id="subject" name="subject" class="form-control" required placeholder="What is this about?" value="{{ request.form.get('subject', '') }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="message">Message <span style="color:red;">*</span></label>
+                    <textarea id="message" name="message" class="form-control" rows="5" required placeholder="How can we help you?" style="resize: vertical;">{{ request.form.get('message', '') }}</textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Send Message</button>
+            </form>
+        </div>
+
+        <script>
+        const toggleValid = (input, errorId, isValid) => {
+            const errorEl = document.getElementById(errorId);
+            if (isValid) {
+                input.style.borderColor = "";
+                errorEl.style.display = "none";
+            } else {
+                input.style.borderColor = "var(--danger)";
+                errorEl.style.display = "block";
+            }
+        };
+
+        const validateContact = () => {
+            const nameInput = document.getElementById("name");
+            const emailInput = document.getElementById("email");
+
+            const nameValid = /^[A-Za-z\s]+$/.test(nameInput.value.trim());
+            const emailValid = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(emailInput.value.trim());
+
+            toggleValid(nameInput, "nameError", nameValid);
+            toggleValid(emailInput, "emailError", emailValid);
+
+            return nameValid && emailValid;
+        };
+
+        const handleContactSubmit = (e) => {
+            if (!validateContact()) {
+                e.preventDefault();
+                return false;
+            }
+            if (typeof showLoader === 'function') {
+                showLoader();
+            }
+            return true;
+        };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const nameInput = document.getElementById("name");
+            const emailInput = document.getElementById("email");
+            if (nameInput) {
+                nameInput.addEventListener("input", () => {
+                    toggleValid(nameInput, "nameError", /^[A-Za-z\s]+$/.test(nameInput.value.trim()));
+                });
+            }
+            if (emailInput) {
+                emailInput.addEventListener("input", () => {
+                    toggleValid(emailInput, "emailError", /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(emailInput.value.trim()));
+                });
+            }
+        });
+        </script>
+        
+        <div class="glass-card">
+            <h3>Contact Information</h3>
+            <p style="color: var(--text-secondary); margin-top: 1.5rem;"><i class="fa-solid fa-map-marker-alt"></i> 123 Tech Avenue, Silicon Valley, CA</p>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;"><i class="fa-solid fa-envelope"></i> support@aquaguardai.com</p>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;"><i class="fa-solid fa-phone"></i> +1 (555) 123-4567</p>
+            
+            <h4 style="margin-top: 2rem; margin-bottom: 1rem;">Find Us</h4>
+            <!-- Google Maps Placeholder -->
+            <div style="width: 100%; height: 250px; background: rgba(0,0,0,0.2); border-radius: 0.5rem; overflow: hidden; position: relative;">
+                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3168.63929062107!2d-122.08385118469247!3d37.38605177983115!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x808fb7495bec0189%3A0x7c17d44a466baf9b!2sMountain%20View%2C%20CA!5e0!3m2!1sen!2sus!4v1621234567890!5m2!1sen!2sus" width="100%" height="100%" style="border:0; filter: invert(90%) hue-rotate(180deg);" allowfullscreen="" loading="lazy"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Inspection History | AquaGuard AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem;">
+    <a href="{{ url_for('inspector_dashboard') }}" class="btn btn-outline" style="padding: 0.5rem;"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <h2><i class="fa-solid fa-clock-rotate-left"></i> Inspection History</h2>
+</div>
+
+<div class="glass-card" style="overflow-x: auto;">
+    {% if inspections %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 1rem;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1rem; color: var(--text-secondary);">Date & Time</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">User/Client</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Source</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">AI Prediction</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Inspector Assessment</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for insp in inspections %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);" class="table-row-hover">
+                <td style="padding: 1rem; white-space: nowrap;">
+                    <div style="font-weight: 500;">{{ insp.inspection_date }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ insp.inspection_time }}</div>
+                </td>
+                <td style="padding: 1rem;">
+                    {% if insp.user_name %}
+                    <div style="font-weight: 500;">{{ insp.user_name }}</div>
+                    {% else %}
+                    <div style="font-weight: 500; color: var(--text-secondary);">Walk-in / Unlinked</div>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    <div>{{ insp.water_source }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">{% if insp.pdf_path %}PDF Extracted{% else %}Manual Entry{% endif %}</div>
+                </td>
+                <td style="padding: 1rem;">
+                    {% if insp.ai_prediction %}
+                    <span class="badge badge-{{ 'success' if insp.ai_prediction == 'SAFE' else 'danger' }}">
+                        {{ insp.ai_prediction }}
+                    </span>
+                    {% else %}
+                    <span class="badge" style="background: var(--glass-bg);">N/A</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    <span class="badge badge-{{ 'success' if insp.inspector_assessment == 'Safe' else ('danger' if insp.inspector_assessment == 'Unsafe' else 'warning') }}">
+                        {{ insp.inspector_assessment }}
+                    </span>
+                </td>
+                <td style="padding: 1rem;">
+                    <button type="button" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="openHistoryModal('{{ insp.inspection_date }}', '{{ insp.temperature }}', '{{ insp.ph }}', '{{ insp.dissolved_oxygen }}', '{{ insp.bod }}', '{{ insp.conductivity }}', '{{ insp.nitrate }}', '{{ insp.faecal_streptococci }}', '{{ insp.faecal_coliform }}', '{{ insp.total_coliform }}', '{{ insp.inspector_remarks | escape }}')">
+                        <i class="fa-solid fa-eye"></i> View Values
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No field inspections completed yet.</p>
+    {% endif %}
+</div>
+
+<!-- Details Modal -->
+<div id="historyModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content glass-card" style="margin: 5% auto; width: 90%; max-width: 600px; padding: 2rem;">
+        <span onclick="closeHistoryModal()" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+        <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-flask"></i> Inspection Data</h3>
+        
+        <table style="width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 1.5rem;">
+            <tbody>
+                <tr style="border-bottom: 1px solid var(--glass-border);"><th style="padding: 0.5rem;">Temperature (°C)</th><td id="h_temp" style="padding: 0.5rem;"></td></tr>
+                <tr style="border-bottom: 1px solid var(--glass-border);"><th style="padding: 0.5rem;">pH</th><td id="h_ph" style="padding: 0.5rem;"></td></tr>
+                <tr style="border-bottom: 1px solid var(--glass-border);"><th style="padding: 0.5rem;">DO (mg/L)</th><td id="h_do" style="padding: 0.5rem;"></td></tr>
+                <tr style="border-bottom: 1px solid var(--glass-border);"><th style="padding: 0.5rem;">BOD (mg/L)</th><td id="h_bod" style="padding: 0.5rem;"></td></tr>
+                <tr style="border-bottom: 1px solid var(--glass-border);"><th style="padding: 0.5rem;">Conductivity</th><td id="h_cond" style="padding: 0.5rem;"></td></tr>
+                <tr style="border-bottom: 1px solid var(--glass-border);"><th style="padding: 0.5rem;">Nitrate (mg/L)</th><td id="h_nit" style="padding: 0.5rem;"></td></tr>
+                <tr style="border-bottom: 1px solid var(--glass-border);"><th style="padding: 0.5rem;">F. Streptococci</th><td id="h_fs" style="padding: 0.5rem;"></td></tr>
+                <tr style="border-bottom: 1px solid var(--glass-border);"><th style="padding: 0.5rem;">F. Coliform</th><td id="h_fc" style="padding: 0.5rem;"></td></tr>
+                <tr style="border-bottom: 1px solid var(--glass-border);"><th style="padding: 0.5rem;">Total Coliform</th><td id="h_tc" style="padding: 0.5rem;"></td></tr>
+            </tbody>
+        </table>
+        
+        <h4>Inspector Remarks</h4>
+        <p id="h_rem" style="color: var(--text-secondary); background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 0.5rem; margin-top: 0.5rem;"></p>
+    </div>
+</div>
+
+<script>
+    function openHistoryModal(date, temp, ph, dob, bod, cond, nit, fs, fc, tc, rem) {
+        document.getElementById('h_temp').innerText = temp;
+        document.getElementById('h_ph').innerText = ph;
+        document.getElementById('h_do').innerText = dob;
+        document.getElementById('h_bod').innerText = bod;
+        document.getElementById('h_cond').innerText = cond;
+        document.getElementById('h_nit').innerText = nit;
+        document.getElementById('h_fs').innerText = fs;
+        document.getElementById('h_fc').innerText = fc;
+        document.getElementById('h_tc').innerText = tc;
+        document.getElementById('h_rem').innerText = rem || 'No remarks provided.';
+        document.getElementById('historyModal').style.display = 'block';
+    }
+    function closeHistoryModal() {
+        document.getElementById('historyModal').style.display = 'none';
+    }
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('historyModal')) {
+            closeHistoryModal();
+        }
+    }
+</script>
+{% endblock %}

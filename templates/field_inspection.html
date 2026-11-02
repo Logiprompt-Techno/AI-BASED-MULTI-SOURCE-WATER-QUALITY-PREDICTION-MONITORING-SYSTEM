@@ -1,0 +1,684 @@
+{% extends "base.html" %}
+
+{% block title %}Field Inspection | AquaGuard AI{% endblock %}
+
+{% block content %}
+<style>
+    .section-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .section-title {
+        color: var(--primary);
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    
+    .tech-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+    }
+    .tech-details {
+        display: none;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed rgba(255,255,255,0.1);
+    }
+    
+    .photo-upload-container {
+        border: 2px dashed rgba(255,255,255,0.2);
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .param-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+    .param-table th, .param-table td {
+        padding: 0.75rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        text-align: left;
+    }
+    .param-table input {
+        width: 100%;
+        background: transparent;
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+        padding: 0.25rem;
+        border-radius: 4px;
+    }
+    
+    .dynamic-row {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr 1fr 1.5fr 1.5fr 1fr 2fr auto;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        align-items: center;
+    }
+</style>
+
+<!-- Leaflet Map CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div style="margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem;">
+    <a href="{{ url_for('inspector_dashboard') }}" class="btn btn-outline" style="padding: 0.5rem;"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <div>
+        <h2><i class="fa-solid fa-clipboard-check"></i> Field Inspection</h2>
+        <p style="color: var(--text-secondary);">Comprehensive environmental water-quality assessment.</p>
+    </div>
+</div>
+
+{% if appointment_details %}
+<!-- Inspection Location Section for Inspector -->
+<div class="section-card" style="border-left: 4px solid var(--accent-primary);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <h3 class="section-title" style="margin: 0; padding: 0; border: none;">
+            <i class="fa-solid fa-map-location-dot" style="color: var(--accent-primary);"></i> Saved Inspection Location Map
+        </h3>
+        {% if appointment_details.latitude and appointment_details.longitude %}
+        <a href="https://www.google.com/maps/search/?api=1&query={{ appointment_details.latitude }},{{ appointment_details.longitude }}" target="_blank" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.4rem 0.9rem; display: inline-flex; align-items: center; gap: 0.4rem; background: var(--accent-primary);">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Maps
+        </a>
+        {% elif appointment_details.address %}
+        <a href="https://www.google.com/maps/search/?api=1&query={{ appointment_details.address|urlencode }}" target="_blank" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.4rem 0.9rem; display: inline-flex; align-items: center; gap: 0.4rem; background: var(--accent-primary);">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Maps
+        </a>
+        {% endif %}
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 0.5rem; align-items: center;">
+        <div>
+            <p style="margin-bottom: 0.5rem;"><strong>Client Name:</strong> {{ appointment_details.user_name }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong>Contact Phone:</strong> {{ appointment_details.phone_number or 'N/A' }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong>Saved Address:</strong> {{ appointment_details.address }}</p>
+            {% if appointment_details.latitude and appointment_details.longitude %}
+            <p style="margin-bottom: 0.5rem; color: #60a5fa;"><strong>Coordinates:</strong> Lat {{ appointment_details.latitude }}, Lng {{ appointment_details.longitude }}</p>
+            {% endif %}
+        </div>
+        <div id="inspectorFieldMap" style="height: 250px; width: 100%; border-radius: 10px; border: 1px solid var(--glass-border); box-shadow: 0 4px 16px rgba(0,0,0,0.3); z-index: 1;"></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const appointmentDetails = {{ (appointment_details if appointment_details else None)|tojson }};
+    {% if appointment_details and appointment_details.latitude and appointment_details.longitude %}
+    const lat = {{ appointment_details.latitude }};
+    const lng = {{ appointment_details.longitude }};
+    const map = L.map('inspectorFieldMap').setView([lat, lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    const popupAddress = appointmentDetails && appointmentDetails.address ? appointmentDetails.address : '';
+    L.marker([lat, lng]).addTo(map).bindPopup("<b>Client Water Location</b><br>" + popupAddress).openPopup();
+    {% else %}
+    const map = L.map('inspectorFieldMap').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    {% endif %}
+});
+</script>
+{% endif %}
+
+<form id="inspectionForm" action="{{ url_for('inspector_field_inspection') }}" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="techniques_data" id="techniques_data">
+    <input type="hidden" name="measurements_data" id="measurements_data">
+    <input type="hidden" name="appointment_id" value="{{ appointment_id or '' }}">
+
+    <!-- Section A: Inspection & Customer Details -->
+    <div class="section-card">
+        <h3 class="section-title"><i class="fa-solid fa-user-tag"></i> 1. Inspection & Customer Details</h3>
+        {% if appointment_details %}
+        <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem; font-size: 0.85rem;">
+            <div style="font-weight: 600; color: var(--accent-primary); margin-bottom: 0.4rem;">
+                <i class="fa-solid fa-circle-info"></i> Inspection Type: {{ appointment_details.inspection_type }}
+            </div>
+            {% if appointment_details.inspection_type == 'Both Online & Field Inspection' %}
+                <div style="color: #60a5fa;"><i class="fa-solid fa-laptop"></i> <strong>Online Schedule:</strong> {{ appointment_details.online_date|safe_strftime('%Y-%m-%d') }} {{ appointment_details.online_time or '' }}</div>
+                <div style="color: #34d399; margin-top: 0.2rem;"><i class="fa-solid fa-compass"></i> <strong>Field Schedule:</strong> {{ appointment_details.field_date|safe_strftime('%Y-%m-%d') }} {{ appointment_details.field_time or '' }}</div>
+            {% else %}
+                <div style="color: #34d399;"><i class="fa-solid fa-compass"></i> <strong>Field Schedule:</strong> {{ (appointment_details.field_date or appointment_details.appointment_date)|safe_strftime('%Y-%m-%d') }} {{ appointment_details.field_time or appointment_details.appointment_time or '' }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+        <div class="grid-2">
+            <div>
+                <label>Select User / Customer</label>
+                {% if appointment_id %}
+                <input type="hidden" name="user_id" value="{{ selected_user_id }}">
+                {% endif %}
+                <select name="user_id" class="form-control" {% if appointment_id %}disabled style="pointer-events: none; background: rgba(255,255,255,0.05); color: var(--text-secondary); opacity: 0.8;"{% endif %}>
+                    <option value="">-- Unlinked Inspection --</option>
+                    {% for u in users %}
+                    <option value="{{ u.id }}" {% if selected_user_id and selected_user_id|int == u.id|int %}selected{% endif %}>{{ u.name }} ({{ u.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Inspection Date <span style="color:red;">*</span></label>
+                <input type="date" name="inspection_date" class="form-control" value="{{ (appointment_details and (appointment_details.field_date or appointment_details.appointment_date)|safe_strftime('%Y-%m-%d')) or today }}" required>
+            </div>
+            <div>
+                <label>Inspection Time <span style="color:red;">*</span></label>
+                <input type="time" name="inspection_time" class="form-control" value="{{ (appointment_details and (appointment_details.field_time or appointment_details.appointment_time)) or time_now }}" required>
+            </div>
+            <div>
+                <label>Water Source <span style="color:red;">*</span></label>
+                <select name="water_source" class="form-control" required>
+                    <option value="">Select Source</option>
+                    <option value="Tap Water">Tap Water</option>
+                    <option value="Well">Well</option>
+                    <option value="River">River</option>
+                    <option value="Lake">Lake</option>
+                    <option value="Borewell">Borewell</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section B: On-Site Water Photos -->
+    <div class="section-card">
+        <h3 class="section-title"><i class="fa-solid fa-camera"></i> 2. On-Site Water Photos</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Upload evidence and documentation. Allowed formats: JPG, PNG.</p>
+        <div class="grid-3">
+            <div class="photo-upload-container">
+                <label>Water Sample Photo</label>
+                <input type="file" name="photo_sample" accept="image/*" class="form-control" multiple>
+                <input type="text" name="photo_sample_desc" class="form-control mt-2" placeholder="Description (e.g., sample from well)">
+            </div>
+            <div class="photo-upload-container">
+                <label>Water Source Photo</label>
+                <input type="file" name="photo_source" accept="image/*" class="form-control" multiple>
+                <input type="text" name="photo_source_desc" class="form-control mt-2" placeholder="Description (e.g., river bank)">
+            </div>
+            <div class="photo-upload-container">
+                <label>Surrounding Area Photo</label>
+                <input type="file" name="photo_surrounding" accept="image/*" class="form-control" multiple>
+                <input type="text" name="photo_surrounding_desc" class="form-control mt-2" placeholder="Description (e.g., nearby farms)">
+            </div>
+            <div class="photo-upload-container">
+                <label>Pollution/Contamination Photo</label>
+                <input type="file" name="photo_pollution" accept="image/*" class="form-control" multiple>
+                <input type="text" name="photo_pollution_desc" class="form-control mt-2" placeholder="Description">
+            </div>
+            <div class="photo-upload-container">
+                <label>Equipment/Testing Photo</label>
+                <input type="file" name="photo_equipment" accept="image/*" class="form-control" multiple>
+                <input type="text" name="photo_equipment_desc" class="form-control mt-2" placeholder="Description (e.g., pH meter reading)">
+            </div>
+            <div class="photo-upload-container">
+                <label>Additional Photos</label>
+                <input type="file" name="photo_additional" accept="image/*" class="form-control" multiple>
+                <input type="text" name="photo_additional_desc" class="form-control mt-2" placeholder="Description">
+            </div>
+        </div>
+    </div>
+
+    <!-- Section C: Techniques & Testing Equipment -->
+    <div class="section-card">
+        <h3 class="section-title"><i class="fa-solid fa-microscope"></i> 3. Inspection Techniques & Testing Equipment</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Select the instruments used during this inspection and provide optional details.</p>
+        
+        <div id="techniquesList">
+            {% set tech_options = ['Test Strips', 'Digital pH Meter', 'Dissolved Oxygen Meter', 'Conductivity Meter', 'TDS Meter', 'Turbidity Meter', 'Data Logger', 'Transducers', 'Portable Water Quality Analyzer', 'Color Comparator', 'Field Test Kit', 'Laboratory Sample Collection', 'Visual Inspection', 'Other'] %}
+            
+            {% for t in tech_options %}
+            <div class="tech-card">
+                <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                    <input type="checkbox" class="tech-checkbox" value="{{ t }}"> <strong>{{ t }}</strong>
+                </label>
+                <div class="tech-details">
+                    <div class="grid-3">
+                        <input type="text" class="form-control t-name" placeholder="Equipment Name">
+                        <input type="text" class="form-control t-model" placeholder="Model / Manufacturer">
+                        <input type="text" class="form-control t-id" placeholder="Instrument ID">
+                        <select class="form-control t-cal-status">
+                            <option value="">Calibration Status</option>
+                            <option value="Calibrated">Calibrated</option>
+                            <option value="Not Calibrated">Not Calibrated</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
+                        <input type="date" class="form-control t-cal-date" title="Calibration Date">
+                        <input type="text" class="form-control t-unit" placeholder="Measurement Unit">
+                    </div>
+                    <textarea class="form-control mt-2 t-notes" placeholder="Testing Method / Procedure Notes"></textarea>
+                    <textarea class="form-control mt-2 t-remarks" placeholder="Remarks"></textarea>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Section D: Lab PDF -->
+    <div class="section-card">
+        <h3 class="section-title"><i class="fa-solid fa-file-pdf"></i> 4. Laboratory Report (Optional)</h3>
+        <div style="display: flex; gap: 1rem; align-items: center; margin-bottom:1rem;">
+            <input type="file" id="labPdfFile" class="form-control" accept=".pdf" style="max-width: 400px;">
+            <button type="button" id="extractBtn" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Extract Values</button>
+        </div>
+        <div id="pdfError" style="color: var(--danger); margin-bottom: 0.5rem; display: none;"></div>
+        <div id="pdfSuccess" style="color: var(--success); margin-bottom: 0.5rem; display: none;"></div>
+        
+        <input type="hidden" name="pdf_path" id="pdfPathInput">
+    </div>
+
+    <!-- Section E: WQI Parameters -->
+    <div class="section-card">
+        <h3 class="section-title"><i class="fa-solid fa-flask"></i> 5. Water Quality Parameters</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Values extracted from PDF will populate here. Review and edit manually if needed.</p>
+        <table class="param-table">
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Extracted / Entered Value</th>
+                    <th>Unit</th>
+                    <th>Editable</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Temperature</td>
+                    <td><input type="number" step="any" name="temperature" id="temp_input"></td>
+                    <td>°C</td>
+                    <td>Yes</td>
+                </tr>
+                <tr>
+                    <td>pH</td>
+                    <td><input type="number" step="any" name="ph" id="ph_input"></td>
+                    <td>-</td>
+                    <td>Yes</td>
+                </tr>
+                <tr>
+                    <td>Dissolved Oxygen</td>
+                    <td><input type="number" step="any" name="dissolved_oxygen" id="do_input"></td>
+                    <td>mg/L</td>
+                    <td>Yes</td>
+                </tr>
+                <tr>
+                    <td>BOD</td>
+                    <td><input type="number" step="any" name="bod" id="bod_input"></td>
+                    <td>mg/L</td>
+                    <td>Yes</td>
+                </tr>
+                <tr>
+                    <td>Conductivity</td>
+                    <td><input type="number" step="any" name="conductivity" id="cond_input"></td>
+                    <td>µS/cm</td>
+                    <td>Yes</td>
+                </tr>
+                <tr>
+                    <td>Nitrate</td>
+                    <td><input type="number" step="any" name="nitrate" id="nitrate_input"></td>
+                    <td>mg/L</td>
+                    <td>Yes</td>
+                </tr>
+                <tr>
+                    <td>Faecal Streptococci</td>
+                    <td><input type="number" step="any" name="faecal_streptococci" id="fstrep_input"></td>
+                    <td>MPN/100ml</td>
+                    <td>Yes</td>
+                </tr>
+                <tr>
+                    <td>Faecal Coliform</td>
+                    <td><input type="number" step="any" name="faecal_coliform" id="fcoliform_input"></td>
+                    <td>MPN/100ml</td>
+                    <td>Yes</td>
+                </tr>
+                <tr>
+                    <td>Total Coliform</td>
+                    <td><input type="number" step="any" name="total_coliform" id="tcoliform_input"></td>
+                    <td>MPN/100ml</td>
+                    <td>Yes</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section F: Field Observations -->
+    <div class="section-card">
+        <h3 class="section-title"><i class="fa-solid fa-eye"></i> 6. Field Observations</h3>
+        <div class="grid-3">
+            <div>
+                <label>Water Appearance <span style="color:red;">*</span></label>
+                <select name="water_appearance" class="form-control" required>
+                    <option value="">Select...</option>
+                    <option value="Clear">Clear</option>
+                    <option value="Slightly Cloudy">Slightly Cloudy</option>
+                    <option value="Cloudy">Cloudy</option>
+                    <option value="Muddy">Muddy</option>
+                </select>
+            </div>
+            <div>
+                <label>Water Colour <span style="color:red;">*</span></label>
+                <select name="water_colour" class="form-control" required>
+                    <option value="">Select...</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Yellow">Yellow</option>
+                    <option value="Brown">Brown</option>
+                    <option value="Green">Green</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div>
+                <label>Water Odour <span style="color:red;">*</span></label>
+                <select name="water_odour" class="form-control" required>
+                    <option value="">Select...</option>
+                    <option value="None">None</option>
+                    <option value="Mild">Mild</option>
+                    <option value="Strong">Strong</option>
+                    <option value="Unusual">Unusual</option>
+                </select>
+            </div>
+            <div>
+                <label>Visible Contamination <span style="color:red;">*</span></label>
+                <select name="visible_contamination" class="form-control" required>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                </select>
+            </div>
+            <div>
+                <label>Nearby Pollution Source <span style="color:red;">*</span></label>
+                <select name="nearby_pollution" class="form-control" required>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                </select>
+            </div>
+            <div>
+                <label>Drainage/Leakage Observed <span style="color:red;">*</span></label>
+                <select name="drainage_leakage" class="form-control" required>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-3">
+            <label>Inspector Remarks</label>
+            <textarea name="inspector_remarks" class="form-control" rows="3"></textarea>
+        </div>
+    </div>
+
+    <!-- Section G: Sample Collection -->
+    <div class="section-card">
+        <h3 class="section-title"><i class="fa-solid fa-vial"></i> 7. Sample Collection Details</h3>
+        <div>
+            <label>Sample Collected? <span style="color:red;">*</span></label>
+            <select name="sample_collected" id="sampleCollectedSelect" class="form-control" style="max-width: 200px;" required>
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+            </select>
+        </div>
+        <div id="sampleFields" class="grid-3 mt-3" style="display: none;">
+            <div><label>Sample ID</label><input type="text" name="sample_id" class="form-control"></div>
+            <div><label>Collection Time</label><input type="time" name="sample_collection_time" class="form-control"></div>
+            <div><label>Sample Type</label><input type="text" name="sample_type" class="form-control" placeholder="e.g. Grab, Composite"></div>
+            <div><label>Number of Samples</label><input type="number" name="sample_count" class="form-control"></div>
+            <div><label>Container Type</label><input type="text" name="container_type" class="form-control" placeholder="e.g. Glass, Plastic"></div>
+            <div><label>Preservation Method</label><input type="text" name="preservation_method" class="form-control" placeholder="e.g. Refrigerated"></div>
+            <div><label>Sent to Laboratory</label><select name="sample_sent_to_lab" class="form-control"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+            <div><label>Laboratory Name</label><input type="text" name="laboratory_name" class="form-control"></div>
+            <div><label>Laboratory Ref Number</label><input type="text" name="laboratory_ref" class="form-control"></div>
+        </div>
+    </div>
+
+    <!-- Section H: Field Measurements -->
+    <div class="section-card">
+        <h3 class="section-title"><i class="fa-solid fa-chart-line"></i> 8. Field Measurements Record (Optional)</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">Record direct readings from field instruments here.</p>
+        
+        <div id="measurementsContainer"></div>
+        <button type="button" id="addMeasurementBtn" class="btn btn-outline mt-2"><i class="fa-solid fa-plus"></i> Add Measurement</button>
+    </div>
+
+    <!-- Section I: Assessment -->
+    <div class="section-card">
+        <h3 class="section-title"><i class="fa-solid fa-clipboard-list"></i> 9. Field Inspection Assessment</h3>
+        <div class="mb-3">
+            <label>Inspector Assessment <span style="color:red;">*</span></label>
+            <select name="inspector_assessment" class="form-control" required style="max-width: 300px; font-weight: bold;">
+                <option value="">Select Overall Assessment...</option>
+                <option value="Safe">Safe</option>
+                <option value="Unsafe">Unsafe</option>
+                <option value="Requires Further Laboratory Testing">Requires Further Laboratory Testing</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label>Inspection Summary</label>
+            <textarea name="inspection_summary" class="form-control" rows="3" placeholder="Brief summary of findings"></textarea>
+        </div>
+        <div>
+            <label>Recommended Action</label>
+            <textarea name="recommended_action" class="form-control" rows="3" placeholder="e.g. No immediate concern, Do not consume"></textarea>
+        </div>
+    </div>
+
+    <!-- Section J: Summary & Save -->
+    <div class="section-card" style="text-align: center; border-color: var(--primary);">
+        <h3 style="margin-bottom:1rem;">Ready to Save?</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Review all details before submitting. Uploaded files and parameters will be securely saved.</p>
+        <button type="button" onclick="prepareSubmit()" class="btn btn-primary" style="font-size: 1.1rem; padding: 0.75rem 2rem;">
+            <i class="fa-solid fa-save"></i> Save Inspection
+        </button>
+    </div>
+
+</form>
+
+<script>
+    // Toggle Sample Fields
+    document.getElementById('sampleCollectedSelect').addEventListener('change', function(e) {
+        document.getElementById('sampleFields').style.display = e.target.value === 'Yes' ? 'grid' : 'none';
+    });
+
+    // Toggle Technique Details
+    document.querySelectorAll('.tech-checkbox').forEach(cb => {
+        cb.addEventListener('change', function(e) {
+            let details = this.closest('.tech-card').querySelector('.tech-details');
+            details.style.display = this.checked ? 'block' : 'none';
+        });
+    });
+
+    // Dynamic Measurements
+    const mContainer = document.getElementById('measurementsContainer');
+    document.getElementById('addMeasurementBtn').addEventListener('click', () => {
+        const div = document.createElement('div');
+        div.className = 'dynamic-row';
+        div.innerHTML = `
+            <input type="text" class="form-control m-param" placeholder="Parameter (e.g. TDS)">
+            <input type="number" step="any" class="form-control m-val" placeholder="Value">
+            <input type="text" class="form-control m-unit" placeholder="Unit">
+            <input type="text" class="form-control m-tech" placeholder="Technique">
+            <input type="text" class="form-control m-inst" placeholder="Instrument">
+            <input type="time" class="form-control m-time">
+            <input type="text" class="form-control m-rem" placeholder="Remarks">
+            <button type="button" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger);" onclick="this.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
+        `;
+        mContainer.appendChild(div);
+    });
+
+    // PDF Extraction
+    document.getElementById('extractBtn').addEventListener('click', async function() {
+        const fileInput = document.getElementById('labPdfFile');
+        if (!fileInput.files.length) {
+            alert('Please select a PDF file first.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('pdf_file', fileInput.files[0]);
+        formData.append('csrf_token', '{{ csrf_token() }}');
+
+        const btn = this;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Extracting...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch('{{ url_for("extract_pdf") }}', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                const data = result.data;
+                document.getElementById('temp_input').value = data.temperature || '';
+                document.getElementById('ph_input').value = data.ph || '';
+                document.getElementById('do_input').value = data.do || '';
+                document.getElementById('bod_input').value = data.bod || '';
+                document.getElementById('cond_input').value = data.conductivity || '';
+                document.getElementById('nitrate_input').value = data.nitrate || '';
+                document.getElementById('fstrep_input').value = data.faecal_streptococci || '';
+                document.getElementById('fcoliform_input').value = data.faecal_coliform || '';
+                document.getElementById('tcoliform_input').value = data.total_coliform || '';
+                
+                document.getElementById('pdfSuccess').textContent = 'Values extracted successfully. Please review and edit if necessary.';
+                document.getElementById('pdfSuccess').style.display = 'block';
+                document.getElementById('pdfError').style.display = 'none';
+            } else {
+                throw new Error(result.error || 'Failed to extract PDF');
+            }
+        } catch (error) {
+            document.getElementById('pdfError').textContent = error.message;
+            document.getElementById('pdfError').style.display = 'block';
+            document.getElementById('pdfSuccess').style.display = 'none';
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Extract Values';
+            btn.disabled = false;
+        }
+    });
+
+    // Prepare JSON arrays before submit
+    function prepareSubmit() {
+        // Collect required fields
+        const form = document.getElementById('inspectionForm');
+        const fields = [
+            'inspection_date', 'inspection_time', 'water_source', 'water_appearance',
+            'water_colour', 'water_odour', 'visible_contamination', 'nearby_pollution',
+            'drainage_leakage', 'sample_collected', 'inspector_assessment'
+        ];
+
+        let missing = false;
+        fields.forEach(field => {
+            const el = form.querySelector('[name="' + field + '"]');
+            if (el && !el.value.trim()) {
+                missing = true;
+            }
+        });
+
+        if (missing) {
+            alert("Please complete all required fields before submitting the inspection.");
+            return;
+        }
+
+        // Validate range and numbers for WQI inputs
+        const temp = document.getElementById('temp_input').value.trim();
+        const ph = document.getElementById('ph_input').value.trim();
+        const f_do = document.getElementById('do_input').value.trim();
+        const bod = document.getElementById('bod_input').value.trim();
+        const cond = document.getElementById('cond_input').value.trim();
+        const nitrate = document.getElementById('nitrate_input').value.trim();
+        const fstrep = document.getElementById('fstrep_input').value.trim();
+        const fcoli = document.getElementById('fcoliform_input').value.trim();
+        const tcoli = document.getElementById('tcoliform_input').value.trim();
+
+        if (temp) {
+            const val = parseFloat(temp);
+            if (isNaN(val)) {
+                alert("Please enter a valid numeric value for Temperature.");
+                return;
+            }
+            if (val < -50 || val > 100) {
+                alert("Temperature is out of valid scientific range (-50 to 100).");
+                return;
+            }
+        }
+        if (ph) {
+            const val = parseFloat(ph);
+            if (isNaN(val)) {
+                alert("Please enter a valid numeric value for pH.");
+                return;
+            }
+            if (val < 0 || val > 14) {
+                alert("pH must be between 0 and 14.");
+                return;
+            }
+        }
+        const numericPairs = [
+            {val: f_do, name: "Dissolved Oxygen"},
+            {val: bod, name: "BOD"},
+            {val: cond, name: "Conductivity"},
+            {val: nitrate, name: "Nitrate"},
+            {val: fstrep, name: "Faecal Streptococci"},
+            {val: fcoli, name: "Faecal Coliform"},
+            {val: tcoli, name: "Total Coliform"}
+        ];
+
+        for (let i = 0; i < numericPairs.length; i++) {
+            const item = numericPairs[i];
+            if (item.val) {
+                const val = parseFloat(item.val);
+                if (isNaN(val)) {
+                    alert("Please enter a valid numeric value for " + item.name + ".");
+                    return;
+                }
+                if (val < 0) {
+                    alert(item.name + " cannot be negative.");
+                    return;
+                }
+            }
+        }
+
+        // Collect Techniques
+        let techData = [];
+        document.querySelectorAll('.tech-card').forEach(card => {
+            let cb = card.querySelector('.tech-checkbox');
+            if (cb.checked) {
+                techData.push({
+                    technique: cb.value,
+                    equipment_name: card.querySelector('.t-name').value,
+                    equipment_model: card.querySelector('.t-model').value,
+                    instrument_id: card.querySelector('.t-id').value,
+                    calibration_status: card.querySelector('.t-cal-status').value,
+                    calibration_date: card.querySelector('.t-cal-date').value,
+                    measurement_unit: card.querySelector('.t-unit').value,
+                    notes: card.querySelector('.t-notes').value,
+                    remarks: card.querySelector('.t-remarks').value
+                });
+            }
+        });
+        document.getElementById('techniques_data').value = JSON.stringify(techData);
+
+        // Collect Measurements
+        let measData = [];
+        document.querySelectorAll('.dynamic-row').forEach(row => {
+            measData.push({
+                parameter: row.querySelector('.m-param').value,
+                value: row.querySelector('.m-val').value,
+                unit: row.querySelector('.m-unit').value,
+                technique: row.querySelector('.m-tech').value,
+                instrument: row.querySelector('.m-inst').value,
+                time: row.querySelector('.m-time').value,
+                remarks: row.querySelector('.m-rem').value
+            });
+        });
+        document.getElementById('measurements_data').value = JSON.stringify(measData);
+
+        // Submit form
+        document.getElementById('inspectionForm').submit();
+    }
+</script>
+{% endblock %}

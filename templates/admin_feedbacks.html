@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Customer Feedbacks & Satisfaction | AquaGuard Admin{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h2>Customer Feedback Dashboard</h2>
+    <p style="color: var(--text-secondary);">Analyze ratings, Net Promoter Scores, and individual survey responses</p>
+</div>
+
+<!-- Key KPIs -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Avg Rating -->
+    <div class="glass-card" style="padding: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+        <div style="background: rgba(251, 191, 36, 0.1); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fbbf24; font-size: 1.5rem;">
+            <i class="fa-solid fa-star"></i>
+        </div>
+        <div>
+            <div style="font-size: 1.8rem; font-weight: bold; line-height: 1;">{{ metrics.avg_rating }} <span style="font-size: 1rem; color: var(--text-secondary);">/ 5</span></div>
+            <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">Average Rating</div>
+        </div>
+    </div>
+
+    <!-- NPS Score -->
+    <div class="glass-card" style="padding: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+        <div style="background: rgba(139, 92, 246, 0.1); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #8b5cf6; font-size: 1.5rem;">
+            <i class="fa-solid fa-face-smile"></i>
+        </div>
+        <div>
+            <div style="font-size: 1.8rem; font-weight: bold; line-height: 1;">
+                {% if metrics.nps_score > 0 %}+{% endif %}{{ metrics.nps_score }}
+            </div>
+            <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
+                NPS (Net Promoter Score)
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Feedbacks -->
+    <div class="glass-card" style="padding: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+        <div style="background: rgba(14, 165, 233, 0.1); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0ea5e9; font-size: 1.5rem;">
+            <i class="fa-solid fa-comments"></i>
+        </div>
+        <div>
+            <div style="font-size: 1.8rem; font-weight: bold; line-height: 1;">{{ metrics.total }}</div>
+            <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">Total Responses</div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Metrics Analysis (NPS and Categories Side-By-Side) -->
+<div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem; margin-bottom: 2rem; min-height: 250px;">
+    <!-- NPS Category Breakdown -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;"><i class="fa-solid fa-chart-pie" style="color: var(--accent-primary);"></i> Recommendation Breakdown</h3>
+        <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.25rem;">
+                    <span><i class="fa-solid fa-circle" style="color: var(--success); font-size: 0.75rem; margin-right: 0.25rem;"></i> Promoters (Would Recommend)</span>
+                    <strong>{{ metrics.promoters }} ({{ (metrics.promoters / metrics.total * 100)|round(1) if metrics.total > 0 else 0 }}%)</strong>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; background: var(--success); width: {{ (metrics.promoters / metrics.total * 100) if metrics.total > 0 else 0 }}%;"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.25rem;">
+                    <span><i class="fa-solid fa-circle" style="color: var(--warning); font-size: 0.75rem; margin-right: 0.25rem;"></i> Passives (Maybe)</span>
+                    <strong>{{ metrics.passives }} ({{ (metrics.passives / metrics.total * 100)|round(1) if metrics.total > 0 else 0 }}%)</strong>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; background: var(--warning); width: {{ (metrics.passives / metrics.total * 100) if metrics.total > 0 else 0 }}%;"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.25rem;">
+                    <span><i class="fa-solid fa-circle" style="color: var(--danger); font-size: 0.75rem; margin-right: 0.25rem;"></i> Detractors (Would Not)</span>
+                    <strong>{{ metrics.detractors }} ({{ (metrics.detractors / metrics.total * 100)|round(1) if metrics.total > 0 else 0 }}%)</strong>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; background: var(--danger); width: {{ (metrics.detractors / metrics.total * 100) if metrics.total > 0 else 0 }}%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Satisfying Strengths Breakdown -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;"><i class="fa-solid fa-thumbs-up" style="color: var(--accent-primary);"></i> Strengths Breakdown</h3>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            {% for cat, count in metrics.categories.items() %}
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.2rem;">
+                    <span>{{ cat }}</span>
+                    <strong>{{ count }} votes</strong>
+                </div>
+                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; background: var(--accent-primary); width: {{ (count / metrics.total * 100) if metrics.total > 0 else 0 }}%;"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Search & Sort Table Actions -->
+<div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <h3>Individual Feedbacks</h3>
+    <form action="{{ url_for('admin_feedbacks') }}" method="GET" style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <input type="text" name="search" class="form-control" placeholder="Search customer, inspector or text..." value="{{ search }}" style="width: 250px;">
+        <select name="sort" class="form-control" style="width: 170px;" onchange="this.form.submit()">
+            <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest First</option>
+            <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest First</option>
+            <option value="highest_rating" {% if sort == 'highest_rating' %}selected{% endif %}>Highest Rating</option>
+            <option value="lowest_rating" {% if sort == 'lowest_rating' %}selected{% endif %}>Lowest Rating</option>
+        </select>
+        <button type="submit" class="btn btn-outline"><i class="fa-solid fa-search"></i></button>
+    </form>
+</div>
+
+<!-- Feedbacks Table -->
+<div class="glass-card" style="overflow-x: auto; padding: 0;">
+    {% if feedbacks %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border); background: rgba(255,255,255,0.02)">
+                <th style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Appt ID</th>
+                <th style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Customer</th>
+                <th style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Inspector</th>
+                <th style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Rating</th>
+                <th style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Strengths</th>
+                <th style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">NPS</th>
+                <th style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Comments</th>
+                <th style="padding: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fb in feedbacks %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.04); font-size: 0.9rem;" class="table-row-hover">
+                <td style="padding: 1rem; font-weight: bold;">
+                    #{{ fb.appointment_id }}
+                </td>
+                <td style="padding: 1rem;">
+                    {{ fb.user_name }}
+                </td>
+                <td style="padding: 1rem;">
+                    {% if fb.inspector_name %}
+                        <div style="font-weight: 500;"><i class="fa-solid fa-user-tie" style="font-size: 0.8rem;"></i> {{ fb.inspector_name }}</div>
+                    {% else %}
+                        <span style="color: var(--text-secondary); font-style: italic;">Unassigned</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem; white-space: nowrap;">
+                    <span style="color: #fbbf24;">
+                        {% for i in range(fb.rating) %}
+                            <i class="fa-solid fa-star"></i>
+                        {% endfor %}
+                        {% for i in range(5 - fb.rating) %}
+                            <i class="fa-regular fa-star" style="opacity:0.2;"></i>
+                        {% endfor %}
+                    </span>
+                </td>
+                <td style="padding: 1rem;">
+                    {% if fb.categories %}
+                        {% for cat in fb.categories.split(',') %}
+                            <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; font-size: 0.7rem; margin-right: 0.25rem;">{{ cat.strip() }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: var(--text-secondary); font-size: 0.8rem;">-</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    {% if fb.recommendation == 'Yes' %}
+                        <span class="badge badge-success" style="font-size: 0.75rem;"><i class="fa-solid fa-check"></i> Promoter</span>
+                    {% elif fb.recommendation == 'No' %}
+                        <span class="badge badge-danger" style="font-size: 0.75rem;"><i class="fa-solid fa-ban"></i> Detractor</span>
+                    {% else %}
+                        <span class="badge badge-warning" style="font-size: 0.75rem;"><i class="fa-solid fa-info-circle"></i> Passive</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem; max-width: 250px;">
+                    {% if fb.comments %}
+                        <span title="{{ fb.comments }}">{{ fb.comments|truncate(80) }}</span>
+                    {% else %}
+                        <span style="color: var(--text-secondary); font-style: italic;">No comments</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem; color: var(--text-secondary); white-space: nowrap;">
+                    {{ fb.created_at|safe_strftime('%Y-%m-%d') }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 3rem;">No customer feedbacks found matching your query.</p>
+    {% endif %}
+</div>
+{% endblock %}

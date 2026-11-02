@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Profile | AquaGuard AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2>Admin Profile</h2>
+        <p style="color: var(--text-secondary);">Manage your administrator account settings</p>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+    </div>
+</div>
+
+<div class="charts-grid" style="grid-template-columns: 1fr 2fr;">
+    <!-- Profile Info Card -->
+    <div class="glass-card" style="text-align: center;">
+        <div style="margin-bottom: 1.5rem; position: relative; display: inline-block;">
+            <div class="profile-img-container">
+                <img src="{{ url_for('static', filename='uploads/profile/' + admin.profile_image) if admin.profile_image != 'default.png' else 'https://ui-avatars.com/api/?name=Admin&background=3b82f6&color=fff&size=128' }}" alt="Profile" style="width: 120px; height: 120px; border-radius: 50%; border: 4px solid var(--accent-primary); object-fit: cover;">
+            </div>
+        </div>
+        <h3 style="margin-bottom: 0.5rem; font-size: 1.5rem;">{{ admin.name }}</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 0.25rem;"><i class="fa-solid fa-envelope"></i> {{ admin.email }}</p>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;"><i class="fa-solid fa-phone"></i> {{ admin.mobile if admin.mobile else 'Not provided' }}</p>
+        
+        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; text-align: left;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="color: var(--text-secondary);">Role</span>
+                <span style="color: var(--success); font-weight: bold;">Administrator</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="color: var(--text-secondary);">Member Since</span>
+                <span>{{ admin.created_at|safe_strftime('%Y-%m-%d') }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Last Login</span>
+                <span>{{ admin.last_login|safe_strftime('%Y-%m-%d %H:%M') if admin.last_login else 'N/A' }}</span>
+            </div>
+        </div>
+
+        <form action="{{ url_for('admin_profile') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="action" value="update_picture">
+            <div class="form-group" style="text-align: left;">
+                <label>Upload Profile Picture (JPG/PNG)</label>
+                <input type="file" name="profile_image" class="form-control" accept=".jpg,.jpeg,.png" required style="padding: 0.5rem;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-camera"></i> Update Picture</button>
+        </form>
+    </div>
+
+    <!-- Update Forms -->
+    <div>
+        <!-- Update Profile Details -->
+        <div class="glass-card" style="margin-bottom: 2rem;">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-user-edit"></i> Edit Profile Information</h3>
+            <form action="{{ url_for('admin_profile') }}" method="POST" id="editProfileForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="action" value="update_profile">
+                
+                <div class="form-group">
+                    <label>Full Name <span style="color:red;">*</span></label>
+                    <input type="text" id="name" name="name" class="form-control" value="{{ request.form.get('name', admin.name) }}" required>
+                    <div class="validation-message" id="nameError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Name must contain letters and spaces only.</div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Email Address (Read-only)</label>
+                    <input type="email" class="form-control" value="{{ admin.email }}" disabled style="opacity: 0.7;">
+                </div>
+                
+                <div class="form-group">
+                    <label>Mobile Number (Optional)</label>
+                    <input type="tel" id="mobile" name="mobile" class="form-control" value="{{ request.form.get('mobile', admin.mobile if admin.mobile else '') }}" placeholder="Enter your 10-digit mobile number">
+                    <div class="validation-message" id="mobileError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Phone number must contain exactly 10 digits.</div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Save Changes</button>
+            </form>
+        </div>
+
+        <!-- Change Password -->
+        <div class="glass-card">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-lock"></i> Change Password</h3>
+            <form action="{{ url_for('admin_profile') }}" method="POST" id="changePasswordForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="action" value="update_password">
+                
+                <div class="form-group">
+                    <label>Current Password <span style="color:red;">*</span></label>
+                    <input type="password" id="current_password" name="current_password" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>New Password <span style="color:red;">*</span></label>
+                    <input type="password" id="new_password" name="new_password" class="form-control" required>
+                    <div class="validation-message" id="newPasswordError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Password must contain at least one letter and one number.</div>
+                </div>
+                
+                <button type="submit" class="btn btn-outline" style="color: var(--warning); border-color: var(--warning);"><i class="fa-solid fa-key"></i> Update Password</button>
+            </form>
+        </div>
+
+        <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const editForm = document.getElementById("editProfileForm");
+            const passForm = document.getElementById("changePasswordForm");
+
+            const nameInput = document.getElementById("name");
+            const mobileInput = document.getElementById("mobile");
+            const newPasswordInput = document.getElementById("new_password");
+
+            const toggleValid = (input, errorId, isValid) => {
+                const errorEl = document.getElementById(errorId);
+                if (isValid) {
+                    input.style.borderColor = "";
+                    errorEl.style.display = "none";
+                } else {
+                    input.style.borderColor = "var(--danger)";
+                    errorEl.style.display = "block";
+                }
+            };
+
+            if (editForm) {
+                editForm.addEventListener("submit", function(e) {
+                    const nameValid = /^[A-Za-z\s]+$/.test(nameInput.value.trim());
+                    const mVal = mobileInput.value.trim();
+                    const mobileValid = mVal === "" || /^\d{10}$/.test(mVal);
+
+                    toggleValid(nameInput, "nameError", nameValid);
+                    toggleValid(mobileInput, "mobileError", mobileValid);
+
+                    if (!nameValid || !mobileValid) {
+                        e.preventDefault();
+                        if (!nameValid) nameInput.focus();
+                        else mobileInput.focus();
+                    }
+                });
+
+                nameInput.addEventListener("input", () => {
+                    toggleValid(nameInput, "nameError", /^[A-Za-z\s]+$/.test(nameInput.value.trim()));
+                });
+                mobileInput.addEventListener("input", () => {
+                    const val = mobileInput.value.trim();
+                    toggleValid(mobileInput, "mobileError", val === "" || /^\d{10}$/.test(val));
+                });
+            }
+
+            if (passForm) {
+                passForm.addEventListener("submit", function(e) {
+                    const passVal = newPasswordInput.value;
+                    const passValid = /[a-zA-Z]/.test(passVal) && /\d/.test(passVal);
+
+                    toggleValid(newPasswordInput, "newPasswordError", passValid);
+
+                    if (!passValid) {
+                        e.preventDefault();
+                        newPasswordInput.focus();
+                    }
+                });
+
+                newPasswordInput.addEventListener("input", () => {
+                    const val = newPasswordInput.value;
+                    toggleValid(newPasswordInput, "newPasswordError", /[a-zA-Z]/.test(val) && /\d/.test(val));
+                });
+            }
+        });
+        </script>
+    </div>
+</div>
+{% endblock %}

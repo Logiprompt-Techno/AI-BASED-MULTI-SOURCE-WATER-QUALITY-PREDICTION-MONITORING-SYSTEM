@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="result-container glass-card">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h2>Prediction Result</h2>
+        <p style="color: var(--text-secondary);">AI analysis complete for {{ data.source }}</p>
+    </div>
+
+    <div class="status-icon {{ 'safe' if data.status == 'SAFE' else 'unsafe' }}">
+        {% if data.status == 'SAFE' %}
+        <i class="fa-solid fa-circle-check"></i>
+        {% else %}
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        {% endif %}
+    </div>
+
+    <h1 style="font-size: 3rem; margin-bottom: 1rem;" class="{{ 'value safe' if data.status == 'SAFE' else 'value unsafe' }}">
+        {{ data.status }}
+    </h1>
+
+    <div class="result-details">
+        <div class="detail-item">
+            <span style="color: var(--text-secondary);">Water Source</span>
+            <span style="font-weight: 500;">
+                {% if data.source == 'Well Water' %}🕳️
+                {% elif data.source == 'River Water' %}🌊
+                {% elif data.source == 'Tap Water' %}🚰
+                {% elif data.source == 'Lake Water' %}🏞️
+                {% elif data.source == 'Industrial Water' %}🏭
+                {% endif %}
+                {{ data.source }}
+            </span>
+        </div>
+        
+        <div class="detail-item">
+            <span style="color: var(--text-secondary);">Data Source</span>
+            <span style="font-weight: 500;">
+                {% if data.prediction_source == 'Laboratory PDF' %}📄{% else %}✍️{% endif %}
+                {{ data.prediction_source }}
+            </span>
+        </div>
+        
+        <div class="detail-item" style="flex-direction: column;">
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Pollution Level</span>
+                <span style="font-weight: 500;">
+                    {% if data.pollution_level == 'Low' %}🟢
+                    {% elif data.pollution_level == 'Medium' %}🟡
+                    {% else %}🔴
+                    {% endif %}
+                    {{ data.pollution_level }} Pollution
+                </span>
+            </div>
+            <div class="pollution-bar-container">
+                {% set width = '20%' if data.pollution_level == 'Low' else ('50%' if data.pollution_level == 'Medium' else '90%') %}
+                {% set color = 'var(--success)' if data.pollution_level == 'Low' else ('var(--warning)' if data.pollution_level == 'Medium' else 'var(--danger)') %}
+                <div class="pollution-bar" style="width: 0; background: {{ color }};" data-width="{{ width }}"></div>
+            </div>
+        </div>
+
+        <div class="detail-item">
+            <span style="color: var(--text-secondary);">Recommendation</span>
+            <span style="font-weight: 500; text-align: right; max-width: 60%;">{{ data.recommendation }}</span>
+        </div>
+
+        {% set custom_params = data.custom_parameters|fromjson %}
+        {% if custom_params %}
+        <div class="detail-item" style="flex-direction: column; align-items: flex-start;">
+            <span style="color: var(--text-secondary); margin-bottom: 0.5rem; font-weight: bold;">Additional Parameters</span>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem; background: rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
+                <thead>
+                    <tr style="background: rgba(255,255,255,0.05);">
+                        <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">Parameter</th>
+                        <th style="padding: 0.5rem; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.1);">Value</th>
+                        <th style="padding: 0.5rem; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.1);">Unit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for param in custom_params %}
+                    <tr>
+                        <td style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">{{ param.name }}</td>
+                        <td style="padding: 0.5rem; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 500;">{{ param.value }}</td>
+                        <td style="padding: 0.5rem; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary);">{{ param.unit }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <div style="margin-top: 2.5rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <a href="{{ url_for('predict') }}" class="btn btn-outline">New Prediction</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Go to Dashboard</a>
+        {% if data.status != 'SAFE' and data.get('id') %}
+        <a href="{{ url_for('book_appointment', prediction_id=data.get('id')) }}" class="btn btn-primary" style="background-color: var(--danger); border-color: var(--danger);"><i class="fa-solid fa-user-shield"></i> Book Water Quality Inspection</a>
+        {% endif %}
+    </div>
+</div>
+
+
+
+<script>
+    // Animate the pollution progress bar
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            const bar = document.querySelector('.pollution-bar');
+            if (bar) {
+                bar.style.width = bar.getAttribute('data-width');
+            }
+        }, 100);
+    });
+
+    </script>
+{% endblock %}

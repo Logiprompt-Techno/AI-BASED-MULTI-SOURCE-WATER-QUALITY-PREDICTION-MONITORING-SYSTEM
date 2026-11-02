@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="predict-container">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h2>Water Quality Prediction</h2>
+        <p style="color: var(--text-secondary);">Enter the parameters below for AI analysis</p>
+    </div>
+
+    <form action="{{ url_for('predict') }}" method="POST" class="glass-card" id="predict-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <input type="hidden" name="prediction_source" id="prediction_source" value="Manual Entry"/>
+        <div class="form-group" style="margin-bottom: 2rem;">
+            <label for="source">Water Source</label>
+            <select name="source" id="source" class="form-control" required>
+                <option value="Well Water" {% if source == 'Well Water' %}selected{% endif %}>Well Water</option>
+                <option value="River Water" {% if source == 'River Water' %}selected{% endif %}>River Water</option>
+                <option value="Tap Water" {% if source == 'Tap Water' %}selected{% endif %}>Tap Water</option>
+                <option value="Lake Water" {% if source == 'Lake Water' %}selected{% endif %}>Lake Water</option>
+                <option value="Industrial Water" {% if source == 'Industrial Water' %}selected{% endif %}>Industrial Water</option>
+            </select>
+        </div>
+
+        <div class="predict-grid">
+            <div class="form-group">
+                <label for="temperature">Temperature (°C)</label>
+                <input type="number" step="0.01" name="temperature" id="temperature" class="form-control" min="-50" max="100" required value="{{ request.form.get('temperature', '') }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="do">Dissolved Oxygen (mg/L)</label>
+                <input type="number" step="0.01" name="do" id="do" class="form-control" min="0" required value="{{ request.form.get('do', '') }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="ph">pH Level</label>
+                <input type="number" step="0.01" name="ph" id="ph" class="form-control" min="0" max="14" required value="{{ request.form.get('ph', '') }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="bod">BOD (mg/L)</label>
+                <input type="number" step="0.01" name="bod" id="bod" class="form-control" min="0" required value="{{ request.form.get('bod', '') }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="f_strep">Faecal Streptococci (MPN/100ml)</label>
+                <input type="number" step="0.01" name="f_strep" id="f_strep" class="form-control" min="0" placeholder="Enter value (MPN/100ml)" required value="{{ request.form.get('f_strep', '') }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="nitrate" class="form-label" style="display: flex; justify-content: space-between;">Nitrate</label>
+                <input type="number" step="0.01" class="form-control" id="nitrate" name="nitrate" placeholder="mg/L" required value="{{ request.form.get('nitrate', '') }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="faecal_coliform" class="form-label" style="display: flex; justify-content: space-between;">Faecal Coliform</label>
+                <input type="number" step="0.01" class="form-control" id="faecal_coliform" name="faecal_coliform" placeholder="MPN/100ml" required value="{{ request.form.get('faecal_coliform', '') }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="total_coliform" class="form-label" style="display: flex; justify-content: space-between;">Total Coliform</label>
+                <input type="number" step="0.01" class="form-control" id="total_coliform" name="total_coliform" placeholder="MPN/100ml" required value="{{ request.form.get('total_coliform', '') }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="conductivity">Conductivity (µS/cm)</label>
+                <input type="number" step="0.01" name="conductivity" id="conductivity" class="form-control" min="0" required value="{{ request.form.get('conductivity', '') }}">
+            </div>
+        </div>
+
+        
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 3rem 0;">
+
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <h3>Additional Parameters</h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Add any extra laboratory or observation values here (e.g. Turbidity, TDS).</p>
+        </div>
+
+        <div id="custom-parameters-container" style="max-width: 800px; margin: 0 auto;">
+            <!-- Custom params will be appended here -->
+        </div>
+
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <button type="button" class="btn btn-outline" id="add-param-btn">
+                <i class="fa-solid fa-plus"></i> Add Parameter
+            </button>
+        </div>
+
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 3rem 0;">
+
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <h3>Laboratory Report Upload</h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Have a lab report? Upload it here to automatically extract the parameters.</p>
+        </div>
+
+        <div id="pdf-dropzone" style="border: 2px dashed rgba(255,255,255,0.3); border-radius: 12px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s ease; background: rgba(0,0,0,0.1);">
+            <i class="fa-solid fa-file-pdf" style="font-size: 3rem; color: #ff4757; margin-bottom: 1rem;"></i>
+            <h4 style="margin: 0 0 0.5rem 0;">Drag & Drop PDF here</h4>
+            <p style="color: var(--text-secondary); margin: 0;">or click to browse</p>
+            <input type="file" id="pdf-input" accept="application/pdf" style="display: none;">
+        </div>
+        
+        <div id="pdf-file-info" style="display: none; text-align: center; margin-top: 1rem;">
+            <p style="color: var(--accent-blue); font-weight: bold;" id="pdf-filename"></p>
+            <button type="button" class="btn btn-secondary" id="extract-btn" style="margin-top: 0.5rem; padding: 0.5rem 1.5rem;">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Extract Parameters
+            </button>
+        </div>
+
+        <div id="pdf-error" style="color: #ff4757; text-align: center; margin-top: 1rem; display: none;"></div>
+
+        <div style="margin-top: 3rem; text-align: center;">
+            <button type="submit" class="btn btn-primary" style="padding: 1rem 3rem; font-size: 1.1rem;" id="predict-btn">
+                <i class="fa-solid fa-microchip"></i> Predict Safety
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const dropzone = document.getElementById('pdf-dropzone');
+    const fileInput = document.getElementById('pdf-input');
+    const fileInfo = document.getElementById('pdf-file-info');
+    const filenameDisplay = document.getElementById('pdf-filename');
+    const extractBtn = document.getElementById('extract-btn');
+    const errorDisplay = document.getElementById('pdf-error');
+    const predictionSourceInput = document.getElementById('prediction_source');
+    
+    let currentFile = null;
+
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'var(--accent-blue)';
+        dropzone.style.background = 'rgba(255,255,255,0.05)';
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.style.borderColor = 'rgba(255,255,255,0.3)';
+        dropzone.style.background = 'rgba(0,0,0,0.1)';
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'rgba(255,255,255,0.3)';
+        dropzone.style.background = 'rgba(0,0,0,0.1)';
+        
+        if (e.dataTransfer.files.length > 0) {
+            handleFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFile(e.target.files[0]);
+        }
+    });
+
+    function handleFile(file) {
+        errorDisplay.style.display = 'none';
+        if (file.type !== 'application/pdf') {
+            showError('Only PDF files are allowed.');
+            return;
+        }
+        currentFile = file;
+        filenameDisplay.textContent = file.name;
+        fileInfo.style.display = 'block';
+    }
+
+    function showError(msg) {
+        errorDisplay.textContent = msg;
+        errorDisplay.style.display = 'block';
+    }
+
+    extractBtn.addEventListener('click', async () => {
+        if (!currentFile) return;
+        
+        const originalText = extractBtn.innerHTML;
+        extractBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Extracting...';
+        extractBtn.disabled = true;
+        errorDisplay.style.display = 'none';
+        
+        const formData = new FormData();
+        formData.append('pdf_file', currentFile);
+        
+        try {
+            const response = await fetch('/extract_pdf', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Extraction failed');
+            }
+            
+            // Populate fields
+            let missingCount = 0;
+            for (const [key, value] of Object.entries(result.data)) {
+                const input = document.getElementById(key);
+                const label = document.querySelector(`label[for="${key}"]`);
+                
+                if (input) {
+                    if (value !== null) {
+                        input.value = value;
+                        input.style.borderColor = '#2ed573'; // Green border for success
+                        // Remove any existing missing text
+                        const existingMissing = label.querySelector('.missing-text');
+                        if (existingMissing) existingMissing.remove();
+                    } else {
+                        input.value = '';
+                        input.style.borderColor = '#ff4757'; // Red border for missing
+                        // Add missing text
+                        if (!label.querySelector('.missing-text')) {
+                            label.innerHTML += ' <span class="missing-text" style="color: #ff4757; font-size: 0.8rem; font-weight: normal;">(Missing, enter manually)</span>';
+                        }
+                        missingCount++;
+                    }
+                }
+            }
+            
+            if (missingCount > 0) {
+                showError(`Extracted with ${missingCount} missing values. Please fill them manually.`);
+            } else {
+                errorDisplay.style.display = 'block';
+                errorDisplay.style.color = '#2ed573';
+                errorDisplay.textContent = 'All parameters extracted successfully!';
+            }
+            
+            // Update source
+            predictionSourceInput.value = 'Laboratory PDF';
+            
+        } catch (err) {
+            showError(err.message);
+        } finally {
+            extractBtn.innerHTML = originalText;
+            extractBtn.disabled = false;
+        }
+    });
+
+    // Dynamic Custom Parameters
+    const addParamBtn = document.getElementById('add-param-btn');
+    const customParamsContainer = document.getElementById('custom-parameters-container');
+    let paramCount = 0;
+
+    addParamBtn.addEventListener('click', () => {
+        paramCount++;
+        const row = document.createElement('div');
+        row.className = 'custom-param-row';
+        row.style.display = 'flex';
+        row.style.gap = '1rem';
+        row.style.marginBottom = '1rem';
+        row.style.alignItems = 'center';
+        row.innerHTML = `
+            <input type="text" name="custom_name[]" class="form-control" placeholder="Parameter Name (e.g. Turbidity)" required style="flex: 2;">
+            <input type="number" step="any" name="custom_value[]" class="form-control" placeholder="Value" required style="flex: 1;">
+            <input type="text" name="custom_unit[]" class="form-control" placeholder="Unit (e.g. NTU)" style="flex: 1;">
+            <button type="button" class="btn btn-danger remove-param-btn" style="padding: 0.5rem 1rem; border: none; background: #ff4757; color: white; border-radius: 0.5rem; cursor: pointer;">&times;</button>
+        `;
+        customParamsContainer.appendChild(row);
+
+        row.querySelector('.remove-param-btn').addEventListener('click', () => {
+            row.remove();
+        });
+    });
+</script>
+
+{% endblock %}

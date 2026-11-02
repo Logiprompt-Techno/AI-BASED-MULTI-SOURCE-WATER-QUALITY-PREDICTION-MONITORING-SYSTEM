@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Inspectors | AquaGuard Admin{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h2><a href="{{ url_for('admin_dashboard') }}" style="color: var(--text-primary); text-decoration: none;"><i class="fa-solid fa-arrow-left" style="font-size: 1.2rem; margin-right: 0.5rem;"></i></a> Manage Inspectors</h2>
+        <p style="color: var(--text-secondary);">Add, manage, activate, or deactivate Water Quality Inspectors</p>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('addInspectorForm').style.display = 'block';"><i class="fa-solid fa-plus"></i> Add Inspector</button>
+</div>
+
+<div id="addInspectorForm" class="glass-card" style="display: none; margin-bottom: 2rem; border: 1px solid var(--accent-primary);">
+    <h3 style="margin-bottom: 1rem;">Add New Inspector</h3>
+    <form action="{{ url_for('admin_inspectors') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="predict-grid">
+            <div class="form-group">
+                <label>Full Name <span style="color:red;">*</span></label>
+                <input type="text" id="full_name" name="full_name" class="form-control" required>
+                <div class="validation-message" id="nameError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Name must contain letters and spaces only.</div>
+            </div>
+            <div class="form-group">
+                <label>Email Address <span style="color:red;">*</span></label>
+                <input type="email" id="email" name="email" class="form-control" required>
+                <div class="validation-message" id="emailError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Please enter a valid Gmail address ending with @gmail.com.</div>
+            </div>
+            <div class="form-group">
+                <label>Phone Number <span style="color:red;">*</span></label>
+                <input type="text" id="phone" name="phone" class="form-control" required>
+                <div class="validation-message" id="phoneError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Phone number must contain exactly 10 digits.</div>
+            </div>
+            <div class="form-group">
+                <label>Password <span style="color:red;">*</span></label>
+                <input type="password" id="password" name="password" class="form-control" required>
+                <div class="validation-message" id="passwordError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Password must contain at least one letter and one number.</div>
+            </div>
+            <div class="form-group">
+                <label>District/Region <span style="color:red;">*</span></label>
+                <input type="text" name="district" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Designation <span style="color:red;">*</span></label>
+                <input type="text" name="designation" class="form-control" placeholder="e.g. Senior Water Analyst" required>
+            </div>
+        </div>
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Save Inspector</button>
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('addInspectorForm').style.display = 'none';">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.querySelector("#addInspectorForm form");
+    const nameInput = document.getElementById("full_name");
+    const emailInput = document.getElementById("email");
+    const phoneInput = document.getElementById("phone");
+    const passwordInput = document.getElementById("password");
+
+    const toggleValid = (input, errorId, isValid) => {
+        const errorEl = document.getElementById(errorId);
+        if (isValid) {
+            input.style.borderColor = "";
+            errorEl.style.display = "none";
+        } else {
+            input.style.borderColor = "var(--danger)";
+            errorEl.style.display = "block";
+        }
+    };
+
+    const validateForm = () => {
+        const nameVal = nameInput.value.trim();
+        const emailVal = emailInput.value.trim();
+        const phoneVal = phoneInput.value.trim();
+        const passVal = passwordInput.value;
+
+        const nameValid = /^[A-Za-z\s]+$/.test(nameVal);
+        const emailValid = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(emailVal);
+        const phoneValid = /^\d{10}$/.test(phoneVal);
+        const passValid = /[a-zA-Z]/.test(passVal) && /\d/.test(passVal);
+
+        toggleValid(nameInput, "nameError", nameValid);
+        toggleValid(emailInput, "emailError", emailValid);
+        toggleValid(phoneInput, "phoneError", phoneValid);
+        toggleValid(passwordInput, "passwordError", passValid);
+
+        return nameValid && emailValid && phoneValid && passValid;
+    };
+
+    if (form) {
+        form.addEventListener("submit", function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+                // Find first invalid input to focus
+                const invalidInput = form.querySelector(".form-control[style*='danger']");
+                if (invalidInput) {
+                    invalidInput.focus();
+                } else if (!/^[A-Za-z\s]+$/.test(nameInput.value.trim())) {
+                    nameInput.focus();
+                } else if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(emailInput.value.trim())) {
+                    emailInput.focus();
+                } else if (!/^\d{10}$/.test(phoneInput.value.trim())) {
+                    phoneInput.focus();
+                } else if (!(/[a-zA-Z]/.test(passwordInput.value) && /\d/.test(passwordInput.value))) {
+                    passwordInput.focus();
+                }
+            }
+        });
+
+        // Realtime validation
+        nameInput.addEventListener("input", () => {
+            toggleValid(nameInput, "nameError", /^[A-Za-z\s]+$/.test(nameInput.value.trim()));
+        });
+        emailInput.addEventListener("input", () => {
+            toggleValid(emailInput, "emailError", /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(emailInput.value.trim()));
+        });
+        phoneInput.addEventListener("input", () => {
+            toggleValid(phoneInput, "phoneError", /^\d{10}$/.test(phoneInput.value.trim()));
+        });
+        passwordInput.addEventListener("input", () => {
+            const val = passwordInput.value;
+            toggleValid(passwordInput, "passwordError", /[a-zA-Z]/.test(val) && /\d/.test(val));
+        });
+    }
+});
+</script>
+
+<div class="glass-card" style="overflow-x: auto;">
+    {% if inspectors %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1rem; color: var(--text-secondary);">Inspector Name</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Contact</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">District</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Status</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for insp in inspectors %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);" class="table-row-hover">
+                <td style="padding: 1rem;">
+                    <div style="font-weight: 500;">{{ insp.full_name }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ insp.designation }}</div>
+                </td>
+                <td style="padding: 1rem;">
+                    <div style="font-size: 0.9rem;">{{ insp.email }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ insp.phone }}</div>
+                </td>
+                <td style="padding: 1rem;">{{ insp.district }}</td>
+                <td style="padding: 1rem;">
+                    {% if insp.status == 'Active' %}
+                        <span class="badge badge-success">Active</span>
+                    {% elif insp.status == 'Pending' %}
+                        <span class="badge badge-warning">Pending</span>
+                    {% elif insp.status == 'Rejected' %}
+                        <span class="badge badge-danger">Rejected</span>
+                    {% else %}
+                        <span class="badge badge-danger">Inactive</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    {% if insp.status == 'Active' %}
+                        <form action="{{ url_for('admin_delete_inspector', inspector_id=insp.inspector_id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to deactivate this inspector? Their historical records will be preserved but they will no longer receive new inspection assignments.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger);" title="Deactivate Inspector"><i class="fa-solid fa-user-slash"></i> Deactivate</button>
+                        </form>
+                    {% elif insp.status == 'Pending' %}
+                        <form action="{{ url_for('admin_activate_inspector', inspector_id=insp.inspector_id) }}" method="POST" style="display:inline; margin-right: 0.25rem;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; color: var(--success); border-color: var(--success);" title="Approve Inspector"><i class="fa-solid fa-user-check"></i> Approve</button>
+                        </form>
+                        <form action="{{ url_for('admin_delete_inspector', inspector_id=insp.inspector_id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to reject this inspector request?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger);" title="Reject Inspector"><i class="fa-solid fa-user-xmark"></i> Reject</button>
+                        </form>
+                    {% else %}
+                        <form action="{{ url_for('admin_activate_inspector', inspector_id=insp.inspector_id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to activate this inspector?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; color: var(--success); border-color: var(--success);" title="Activate Inspector"><i class="fa-solid fa-user-check"></i> Activate</button>
+                        </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No inspectors found.</p>
+    {% endif %}
+</div>
+{% endblock %}

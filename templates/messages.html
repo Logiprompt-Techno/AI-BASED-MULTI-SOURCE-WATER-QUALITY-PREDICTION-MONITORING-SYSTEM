@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}My Messages | AquaGuard AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2>My Messages</h2>
+        <p style="color: var(--text-secondary);">View your inquiries and our replies</p>
+    </div>
+    
+    <form action="{{ url_for('user_messages') }}" method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <select name="status" class="form-control" style="width: auto;" onchange="this.form.submit()">
+            <option value="All" {% if filter_status == 'All' %}selected{% endif %}>All Messages</option>
+            <option value="Pending" {% if filter_status == 'Pending' %}selected{% endif %}>Pending</option>
+            <option value="Replied" {% if filter_status == 'Replied' %}selected{% endif %}>Replied</option>
+        </select>
+    </form>
+</div>
+
+<div class="glass-card" style="overflow-x: auto;">
+    {% if messages %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1rem; color: var(--text-secondary);">Date</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Subject</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Status</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in messages %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);" class="table-row-hover">
+                <td style="padding: 1rem;">{{ item.created_at|safe_strftime('%Y-%m-%d %H:%M') }}</td>
+                <td style="padding: 1rem; font-weight: 500;">{{ item.subject }}</td>
+                <td style="padding: 1rem;">
+                    <span class="badge badge-{{ 'success' if item.status == 'Replied' else 'warning' }}">
+                        {{ item.status }}
+                    </span>
+                </td>
+                <td style="padding: 1rem;">
+                    <button class="btn btn-outline" onclick="openMessageModal('{{ item.get('id') }}')" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">View</button>
+                </td>
+            </tr>
+            
+            <!-- Message Modal -->
+            <div id="modal-{{ item.get('id') }}" class="modal" style="display: none; position: fixed; z-index: 1050; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+                <div class="glass-card" style="margin: auto; width: 90%; max-width: 600px; padding: 2rem; position: relative;">
+                    <span onclick="closeMessageModal('{{ item.get('id') }}')" style="position: absolute; right: 1.5rem; top: 1.5rem; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</span>
+                    
+                    <h3 style="margin-bottom: 1rem; color: var(--accent-primary);">{{ item.subject }}</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem;">Submitted on {{ item.created_at|safe_strftime('%B %d, %Y at %H:%M') }}</p>
+                    
+                    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                        <h4 style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">You</h4>
+                        <p style="line-height: 1.6;">{{ item.message }}</p>
+                    </div>
+                    
+                    {% if item.status == 'Replied' and item.reply_message %}
+                    <div style="background: rgba(16, 185, 129, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 4px solid var(--success);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <h4 style="font-size: 0.9rem; color: var(--success);">Admin</h4>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">{{ item.reply_date|safe_strftime('%B %d, %Y at %H:%M') if item.reply_date else '' }}</span>
+                        </div>
+                        <p style="line-height: 1.6;">{{ item.reply_message }}</p>
+                    </div>
+                    {% else %}
+                    <div style="text-align: center; padding: 1rem; color: var(--text-secondary);">
+                        <i class="fa-solid fa-clock" style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.5;"></i>
+                        <p>Our team is reviewing your message. We will reply shortly.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No messages found.</p>
+    {% endif %}
+</div>
+
+<script>
+    function openMessageModal(id) {
+        document.getElementById('modal-' + id).style.display = 'flex';
+    }
+    
+    function closeMessageModal(id) {
+        document.getElementById('modal-' + id).style.display = 'none';
+    }
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = "none";
+        }
+    }
+</script>
+{% endblock %}

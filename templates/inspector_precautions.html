@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Precaution Methods | AquaGuard AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem;">
+    <a href="{{ url_for('inspector_dashboard') }}" class="btn btn-outline" style="padding: 0.5rem;"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <h2><i class="fa-solid fa-shield-halved"></i> Precaution Methods</h2>
+</div>
+
+<div class="glass-card" style="margin-bottom: 2rem;">
+    <p style="color: var(--text-secondary); margin-bottom: 2rem;">Standard water purification methods and safety precautions.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+        <div class="glass-card" style="background: rgba(255,255,255,0.02);">
+            <h4 style="margin-bottom: 0.5rem; color: var(--accent-primary);"><i class="fa-solid fa-fire"></i> Boiling</h4>
+            <p style="font-size: 0.95rem; color: var(--text-secondary);">Bring water to a rolling boil for at least 1-3 minutes to kill pathogenic bacteria, viruses and protozoa.</p>
+        </div>
+        
+        <div class="glass-card" style="background: rgba(255,255,255,0.02);">
+            <h4 style="margin-bottom: 0.5rem; color: var(--accent-primary);"><i class="fa-solid fa-flask"></i> Chlorination</h4>
+            <p style="font-size: 0.95rem; color: var(--text-secondary);">Use liquid household chlorine bleach or purification tablets. Highly effective against bacteria but less effective against protozoa.</p>
+        </div>
+        
+        <div class="glass-card" style="background: rgba(255,255,255,0.02);">
+            <h4 style="margin-bottom: 0.5rem; color: var(--accent-primary);"><i class="fa-solid fa-filter"></i> RO Purification</h4>
+            <p style="font-size: 0.95rem; color: var(--text-secondary);">Reverse Osmosis removes chemical contaminants, heavy metals, and dissolved solids effectively.</p>
+        </div>
+        
+        <div class="glass-card" style="background: rgba(255,255,255,0.02);">
+            <h4 style="margin-bottom: 0.5rem; color: var(--accent-primary);"><i class="fa-solid fa-sun"></i> UV Purification</h4>
+            <p style="font-size: 0.95rem; color: var(--text-secondary);">Ultraviolet light deactivates the DNA of bacteria and viruses. Requires clear water to be effective.</p>
+        </div>
+        
+        <div class="glass-card" style="background: rgba(255,255,255,0.02);">
+            <h4 style="margin-bottom: 0.5rem; color: var(--accent-primary);"><i class="fa-solid fa-layer-group"></i> UF Filtration</h4>
+            <p style="font-size: 0.95rem; color: var(--text-secondary);">Ultrafiltration removes suspended solids, bacteria, and viruses but does not remove dissolved minerals.</p>
+        </div>
+        
+        <div class="glass-card" style="background: rgba(255,255,255,0.02);">
+            <h4 style="margin-bottom: 0.5rem; color: var(--accent-primary);"><i class="fa-solid fa-cubes"></i> Activated Carbon</h4>
+            <p style="font-size: 0.95rem; color: var(--text-secondary);">Improves taste and removes chlorine, odors, and certain organic chemicals.</p>
+        </div>
+
+        <div class="glass-card" style="background: rgba(255,255,255,0.02);">
+            <h4 style="margin-bottom: 0.5rem; color: var(--accent-primary);"><i class="fa-solid fa-mound"></i> Sand Filtration</h4>
+            <p style="font-size: 0.95rem; color: var(--text-secondary);">Slow sand filtration is a traditional biological process that effectively removes pathogens and turbidity.</p>
+        </div>
+
+        <div class="glass-card" style="background: rgba(255,255,255,0.02);">
+            <h4 style="margin-bottom: 0.5rem; color: var(--accent-primary);"><i class="fa-solid fa-vial"></i> Laboratory Testing</h4>
+            <p style="font-size: 0.95rem; color: var(--text-secondary);">If chemical contamination is suspected (heavy metals, high nitrates), water must not be consumed until tested by a certified lab.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

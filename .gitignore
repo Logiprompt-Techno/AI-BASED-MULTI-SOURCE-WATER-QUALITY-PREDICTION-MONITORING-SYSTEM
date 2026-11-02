@@ -1,0 +1,61 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# IDE settings
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Model files
+*.pt
+*.pth
+*.h5
+*.pkl
+*.joblib
+*.onnx
+
+# Generated files
+generated/
+uploads/
+temp/
+tmp/
+
+# Database files
+*.sqlite3
+*.db
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+.docker/
+
+# Build files
+build/
+dist/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/

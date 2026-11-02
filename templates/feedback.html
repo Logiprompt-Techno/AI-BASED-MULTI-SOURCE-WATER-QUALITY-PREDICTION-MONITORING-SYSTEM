@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Share Experience & Feedback | AquaGuard AI{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto; padding: 2rem 0;">
+    <div style="margin-bottom: 2rem;">
+        <h2><a href="{{ url_for('history') }}" style="color: var(--text-primary); text-decoration: none;"><i class="fa-solid fa-arrow-left" style="font-size: 1.2rem; margin-right: 0.5rem;"></i></a> Share Your Experience</h2>
+        <p style="color: var(--text-secondary);">Your feedback helps us continuously improve our water inspection services.</p>
+    </div>
+
+    <div class="glass-card" style="padding: 2rem;">
+        <form action="{{ url_for('submit_feedback', apt_id=apt.appointment_id) }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+            <!-- Appt summary -->
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 6px; padding: 1rem; margin-bottom: 2rem;">
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; font-size: 0.9rem;">
+                    <div><strong>Inspection Date:</strong> {{ apt.appointment_date }}</div>
+                    <div><strong>Inspector:</strong> {{ apt.inspector_name or 'AquaGuard Expert' }}</div>
+                </div>
+            </div>
+
+            <!-- Star Rating System -->
+            <div style="margin-bottom: 2rem;">
+                <label style="display: block; font-weight: bold; margin-bottom: 0.5rem;">1. Overall Rating <span style="color: var(--danger);">*</span></label>
+                <div class="star-rating-container" style="display: flex; gap: 0.75rem; align-items: center;">
+                    <div class="star-group" style="display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 0.25rem;">
+                        <input type="radio" id="star5" name="rating" value="5" style="display: none;" required/>
+                        <label for="star5" class="star-label" style="font-size: 2rem; color: rgba(255,255,255,0.2); cursor: pointer;" title="Excellent"><i class="fa-solid fa-star"></i></label>
+                        
+                        <input type="radio" id="star4" name="rating" value="4" style="display: none;"/>
+                        <label for="star4" class="star-label" style="font-size: 2rem; color: rgba(255,255,255,0.2); cursor: pointer;" title="Good"><i class="fa-solid fa-star"></i></label>
+                        
+                        <input type="radio" id="star3" name="rating" value="3" style="display: none;"/>
+                        <label for="star3" class="star-label" style="font-size: 2rem; color: rgba(255,255,255,0.2); cursor: pointer;" title="Fair"><i class="fa-solid fa-star"></i></label>
+                        
+                        <input type="radio" id="star2" name="rating" value="2" style="display: none;"/>
+                        <label for="star2" class="star-label" style="font-size: 2rem; color: rgba(255,255,255,0.2); cursor: pointer;" title="Poor"><i class="fa-solid fa-star"></i></label>
+                        
+                        <input type="radio" id="star1" name="rating" value="1" style="display: none;"/>
+                        <label for="star1" class="star-label" style="font-size: 2rem; color: rgba(255,255,255,0.2); cursor: pointer;" title="Very Poor"><i class="fa-solid fa-star"></i></label>
+                    </div>
+                    <span id="rating-label" style="color: var(--text-secondary); font-size: 0.95rem; font-weight: 500; min-width: 100px;">Select a rating</span>
+                </div>
+            </div>
+
+            <!-- Categories Checklist -->
+            <div style="margin-bottom: 2rem;">
+                <label style="display: block; font-weight: bold; margin-bottom: 0.5rem;">2. What did you like most about the service?</label>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    {% for cat in ['Punctuality', 'Technical Expertise', 'Communication', 'Report Clarity', 'System Usability'] %}
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" name="categories" value="{{ cat }}" style="width: 18px; height: 18px; cursor: pointer;"/>
+                        <span>{{ cat }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Comments Textarea -->
+            <div style="margin-bottom: 2rem;">
+                <label for="comments" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">3. Additional Comments or Suggestions</label>
+                <textarea id="comments" name="comments" class="form-control" style="background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: #fff; width: 100%; min-height: 120px; padding: 0.75rem; border-radius: 4px; resize: vertical;" placeholder="Tell us about your experience..."></textarea>
+            </div>
+
+            <!-- NPS/Recommendation Option -->
+            <div style="margin-bottom: 2rem;">
+                <label style="display: block; font-weight: bold; margin-bottom: 0.5rem;">4. Would you recommend AquaGuard AI to others?</label>
+                <div style="display: flex; gap: 1rem;">
+                    {% for option in ['Yes', 'Maybe', 'No'] %}
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); padding: 0.5rem 1rem; border-radius: 4px; flex: 1; justify-content: center;">
+                        <input type="radio" name="recommendation" value="{{ option }}" {% if option == 'Maybe' %}checked{% endif %} style="cursor: pointer;"/>
+                        <span>{{ option }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem; font-size: 1rem;"><i class="fa-solid fa-paper-plane"></i> Submit Feedback</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* CSS to handle interactive star ratings with HTML pure radio trick */
+    .star-group input:checked ~ label,
+    .star-group input:checked + label {
+        color: #fbbf24 !important; /* Tailwind gold-400 equivalent */
+    }
+    .star-group label:hover,
+    .star-group label:hover ~ label {
+        color: #f59e0b !important; /* Hover gold-500 */
+    }
+</style>
+
+<script>
+    // Update label text dynamically based on rating clicked
+    const starLabels = {
+        '1': 'Very Poor',
+        '2': 'Poor',
+        '3': 'Fair',
+        '4': 'Good',
+        '5': 'Excellent'
+    };
+    
+    document.querySelectorAll('.star-group input').forEach(input => {
+        input.addEventListener('change', (e) => {
+            const val = e.target.value;
+            document.getElementById('rating-label').innerText = starLabels[val] || 'Selected';
+            document.getElementById('rating-label').style.color = 'var(--text-primary)';
+            document.getElementById('rating-label').style.fontWeight = 'bold';
+        });
+    });
+</script>
+{% endblock %}

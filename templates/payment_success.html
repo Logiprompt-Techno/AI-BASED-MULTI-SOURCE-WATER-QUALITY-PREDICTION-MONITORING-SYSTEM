@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Successful | AquaGuard AI{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 70vh; padding: 2rem 0;">
+    <div class="glass-card" style="width: 100%; max-width: 500px; padding: 3rem; text-align: center;">
+        <div style="margin-bottom: 2rem;">
+            <div style="width: 80px; height: 80px; background: rgba(16, 185, 129, 0.1); border: 2px solid var(--success); border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 1.5rem auto;">
+                <i class="fa-solid fa-check" style="font-size: 2.5rem; color: var(--success);"></i>
+            </div>
+            <h2 style="color: var(--success); margin-bottom: 0.5rem;">Payment Successful</h2>
+            <p style="color: var(--text-secondary);">Your inspection report has been unlocked successfully.</p>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem; display: flex; flex-direction: column; gap: 0.75rem; text-align: left;">
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Amount Paid</span>
+                <span style="font-weight: bold; color: var(--accent-primary);">₹{{ payment.amount }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Payment Method</span>
+                <span>{{ payment.payment_method }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Transaction ID</span>
+                <span style="font-family: monospace; font-size: 0.9rem;">{{ payment.transaction_id }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Payment Date</span>
+                <span style="font-size: 0.9rem;">{{ payment.payment_date|safe_strftime('%Y-%m-%d %H:%M') if payment.payment_date else 'N/A' }}</span>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <a href="{{ url_for('download_inspection_report', report_id=report_id) }}" class="btn btn-primary btn-block">
+                <i class="fa-solid fa-file-pdf"></i> Download PDF Report
+            </a>
+            <a href="{{ url_for('history') }}" class="btn btn-outline btn-block">
+                <i class="fa-solid fa-arrow-left"></i> Back to History
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

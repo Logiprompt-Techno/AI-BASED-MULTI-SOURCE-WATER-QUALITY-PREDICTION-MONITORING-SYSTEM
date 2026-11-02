@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Inspector Profile | AquaGuard AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem;">
+    <a href="{{ url_for('inspector_dashboard') }}" class="btn btn-outline" style="padding: 0.5rem;"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <h2><i class="fa-solid fa-user-circle"></i> My Profile</h2>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; margin-bottom: 2rem;">
+    <!-- Profile Info Card -->
+    <div class="glass-card" style="text-align: center;">
+        <div style="width: 120px; height: 120px; border-radius: 50%; background-color: var(--glass-bg); margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; border: 2px solid var(--accent-primary);">
+            <i class="fa-solid fa-user" style="font-size: 4rem; color: var(--accent-primary);"></i>
+        </div>
+        <h3>{{ inspector.full_name }}</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">{{ inspector.designation }}</p>
+        <span class="badge badge-success">{{ inspector.status }}</span>
+        
+        <div style="margin-top: 1.5rem; text-align: left; padding-top: 1.5rem; border-top: 1px solid var(--glass-border);">
+            <p style="margin-bottom: 0.5rem;"><strong><i class="fa-solid fa-id-badge"></i> Inspector ID:</strong> INS-{{ inspector.inspector_id }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong><i class="fa-solid fa-envelope"></i> Email:</strong> {{ inspector.email }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong><i class="fa-solid fa-phone"></i> Phone:</strong> {{ inspector.phone }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong><i class="fa-solid fa-map-marker-alt"></i> District:</strong> {{ inspector.district }}</p>
+        </div>
+        
+        <div style="margin-top: 1.5rem; display: flex; justify-content: space-around; background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 0.5rem;">
+            <div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: var(--warning);">{{ stats.assigned }}</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">Assigned</div>
+            </div>
+            <div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: var(--success);">{{ stats.completed }}</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">Completed</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Profile / Password -->
+    <div>
+        <!-- Edit Profile -->
+        <div class="glass-card" style="margin-bottom: 2rem;">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-user-edit"></i> Edit Profile</h3>
+            <form action="{{ url_for('inspector_profile') }}" method="POST" id="editProfileForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="update_profile">
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="form-group">
+                        <label>Full Name <span style="color:red;">*</span></label>
+                        <input type="text" id="full_name" name="full_name" class="form-control" value="{{ inspector.full_name }}" required>
+                        <div class="validation-message" id="nameError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Name must contain letters and spaces only.</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number <span style="color:red;">*</span></label>
+                        <input type="text" id="phone" name="phone" class="form-control" value="{{ inspector.phone }}" required>
+                        <div class="validation-message" id="phoneError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Phone number must contain exactly 10 digits.</div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Save Changes</button>
+            </form>
+        </div>
+        
+        <!-- Change Password -->
+        <div class="glass-card" id="password">
+            <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-key"></i> Change Password</h3>
+            <form action="{{ url_for('inspector_profile') }}" method="POST" id="changePasswordForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="change_password">
+                
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Current Password <span style="color:red;">*</span></label>
+                    <input type="password" id="current_password" name="current_password" class="form-control" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>New Password <span style="color:red;">*</span></label>
+                    <input type="password" id="new_password" name="new_password" class="form-control" required>
+                    <div class="validation-message" id="newPasswordError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Password must contain at least one letter and one number.</div>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Confirm New Password <span style="color:red;">*</span></label>
+                    <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+                    <div class="validation-message" id="confirmPasswordError" style="color: var(--danger); font-size: 0.85rem; display: none; margin-top: 0.25rem;">Password and Confirm Password do not match.</div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="background-color: var(--warning); border-color: var(--warning); color: #000;"><i class="fa-solid fa-lock"></i> Update Password</button>
+            </form>
+        </div>
+
+        <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const editForm = document.getElementById("editProfileForm");
+            const passForm = document.getElementById("changePasswordForm");
+
+            const nameInput = document.getElementById("full_name");
+            const phoneInput = document.getElementById("phone");
+            const newPasswordInput = document.getElementById("new_password");
+            const confirmPasswordInput = document.getElementById("confirm_password");
+
+            const toggleValid = (input, errorId, isValid) => {
+                const errorEl = document.getElementById(errorId);
+                if (isValid) {
+                    input.style.borderColor = "";
+                    errorEl.style.display = "none";
+                } else {
+                    input.style.borderColor = "var(--danger)";
+                    errorEl.style.display = "block";
+                }
+            };
+
+            if (editForm) {
+                editForm.addEventListener("submit", function(e) {
+                    const nameValid = /^[A-Za-z\s]+$/.test(nameInput.value.trim());
+                    const phoneValid = /^\d{10}$/.test(phoneInput.value.trim());
+
+                    toggleValid(nameInput, "nameError", nameValid);
+                    toggleValid(phoneInput, "phoneError", phoneValid);
+
+                    if (!nameValid || !phoneValid) {
+                        e.preventDefault();
+                        if (!nameValid) nameInput.focus();
+                        else phoneInput.focus();
+                    }
+                });
+
+                nameInput.addEventListener("input", () => {
+                    toggleValid(nameInput, "nameError", /^[A-Za-z\s]+$/.test(nameInput.value.trim()));
+                });
+                phoneInput.addEventListener("input", () => {
+                    toggleValid(phoneInput, "phoneError", /^\d{10}$/.test(phoneInput.value.trim()));
+                });
+            }
+
+            if (passForm) {
+                passForm.addEventListener("submit", function(e) {
+                    const passVal = newPasswordInput.value;
+                    const passValid = /[a-zA-Z]/.test(passVal) && /\d/.test(passVal);
+                    const confirmValid = confirmPasswordInput.value === passVal && confirmPasswordInput.value.length > 0;
+
+                    toggleValid(newPasswordInput, "newPasswordError", passValid);
+                    toggleValid(confirmPasswordInput, "confirmPasswordError", confirmValid);
+
+                    if (!passValid || !confirmValid) {
+                        e.preventDefault();
+                        if (!passValid) newPasswordInput.focus();
+                        else confirmPasswordInput.focus();
+                    }
+                });
+
+                newPasswordInput.addEventListener("input", () => {
+                    const val = newPasswordInput.value;
+                    toggleValid(newPasswordInput, "newPasswordError", /[a-zA-Z]/.test(val) && /\d/.test(val));
+                });
+                confirmPasswordInput.addEventListener("input", () => {
+                    toggleValid(confirmPasswordInput, "confirmPasswordError", confirmPasswordInput.value === newPasswordInput.value);
+                });
+            }
+        });
+        </script>
+    </div>
+</div>
+{% endblock %}

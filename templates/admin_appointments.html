@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Appointments | AquaGuard Admin{% endblock %}
+
+{% block content %}
+<!-- Leaflet Map CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div style="margin-bottom: 2rem;">
+    <h2><a href="{{ url_for('admin_dashboard') }}" style="color: var(--text-primary); text-decoration: none;"><i class="fa-solid fa-arrow-left" style="font-size: 1.2rem; margin-right: 0.5rem;"></i></a> Manage Appointments</h2>
+    <p style="color: var(--text-secondary);">Assign active inspectors to pending water quality inspections</p>
+</div>
+
+{% if rejected_appointments %}
+<div style="margin-bottom: 2rem; display: flex; flex-direction: column; gap: 1rem;">
+    {% for apt in rejected_appointments %}
+    <div class="glass-card" style="border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.05); padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="flex: 1; min-width: 250px;">
+            <div style="color: var(--danger); font-weight: 600; margin-bottom: 0.5rem; font-size: 1.05rem;">
+                <i class="fa-solid fa-triangle-exclamation"></i> <strong>{{ apt.get('previous_inspector_name') or 'Inspector' }}</strong> rejected please assign another inspector.
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.9rem;">
+                <div><strong>Customer:</strong> {{ apt.get('user_name') }}</div>
+                <div><strong>Appointment:</strong> {{ apt.get('appointment_date') }} at {{ apt.get('appointment_time') }}</div>
+                <div style="grid-column: 1 / -1;"><strong>Location:</strong> {{ apt.get('address') }}</div>
+                <div><strong>Previous Inspector:</strong> {{ apt.get('previous_inspector_name') or 'Unknown' }}</div>
+                {% if apt.get('rejection_reason') %}
+                <div style="grid-column: 1 / -1; color: var(--text-secondary); background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem;">
+                    <strong>Rejection Reason:</strong> {{ apt.get('rejection_reason') }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div>
+            <button type="button" class="btn btn-primary btn-assign-trigger" onclick="openAssignModal(this.dataset)"
+                data-apt-id="{{ apt.get('appointment_id') }}"
+                data-user-name="{{ apt.get('user_name') }}"
+                data-date="{{ apt.get('appointment_date') }}"
+                data-time="{{ apt.get('appointment_time') }}"
+                data-address="{{ apt.get('address') }}"
+                data-lat="{{ apt.get('latitude') or '' }}"
+                data-lng="{{ apt.get('longitude') or '' }}"
+                data-pred-id="{{ apt.get('prediction_id') }}"
+                data-type="{{ apt.get('inspection_type') }}"
+                data-rejected-inspector="{{ apt.get('rejected_inspector_id') or '' }}">
+                <i class="fa-solid fa-user-plus"></i> Reassign Inspector
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="glass-card" style="overflow-x: auto;">
+    {% if appointments %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1rem; color: var(--text-secondary);">Date & Time</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">User Info</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Address & Details</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Payment Status</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Status</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Assigned Inspector</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for apt in appointments %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);" class="table-row-hover">
+                <td style="padding: 1rem;">
+                    {% if apt.get('inspection_type') == 'Both Online & Field Inspection' or (apt.get('online_date') and apt.get('field_date')) %}
+                        <div style="font-weight: 500; font-size: 0.85rem; color: #60a5fa;"><i class="fa-solid fa-laptop"></i> Online: {{ apt.get('online_date')|safe_strftime('%Y-%m-%d') or apt.get('appointment_date')|safe_strftime('%Y-%m-%d') }} {{ apt.get('online_time') or '' }}</div>
+                        <div style="font-weight: 500; font-size: 0.85rem; color: #34d399; margin-top: 0.25rem;"><i class="fa-solid fa-compass"></i> Field: {{ apt.get('field_date')|safe_strftime('%Y-%m-%d') or apt.get('appointment_date')|safe_strftime('%Y-%m-%d') }} {{ apt.get('field_time') or '' }}</div>
+                    {% elif apt.get('inspection_type') == 'Online Inspection' %}
+                        <div style="font-weight: 500; font-size: 0.85rem; color: #60a5fa;"><i class="fa-solid fa-laptop"></i> {{ apt.get('online_date')|safe_strftime('%Y-%m-%d') or apt.get('appointment_date')|safe_strftime('%Y-%m-%d') }}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ apt.get('online_time') or apt.get('appointment_time') }}</div>
+                    {% elif apt.get('inspection_type') == 'Field Inspection' %}
+                        <div style="font-weight: 500; font-size: 0.85rem; color: #34d399;"><i class="fa-solid fa-compass"></i> {{ apt.get('field_date')|safe_strftime('%Y-%m-%d') or apt.get('appointment_date')|safe_strftime('%Y-%m-%d') }}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ apt.get('field_time') or apt.get('appointment_time') }}</div>
+                    {% else %}
+                        <div style="font-weight: 500;">{{ (apt.get('online_date') or apt.get('field_date') or apt.get('appointment_date'))|safe_strftime('%Y-%m-%d') }}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ apt.get('online_time') or apt.get('field_time') or apt.get('appointment_time') }}</div>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    <div style="font-weight: 500;">{{ apt.get('user_name') }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ apt.get('phone_number') }}</div>
+                </td>
+                <td style="padding: 1rem;">
+                    <div style="font-size: 0.9rem; margin-bottom: 0.25rem;"><i class="fa-solid fa-map-marker-alt" style="color: var(--danger);"></i> {{ apt.get('address') }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">Prediction ID: {{ apt.get('prediction_id') }}</div>
+                </td>
+                <td style="padding: 1rem;">
+                    {% if apt.get('payment_status') == 'PAID' %}
+                    <span class="badge badge-success" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.8rem; font-weight: 600; padding: 0.35rem 0.65rem;">
+                        <i class="fa-solid fa-circle-check"></i> PAID
+                    </span>
+                    {% elif apt.get('payment_status') == 'PENDING' %}
+                    <span class="badge badge-warning" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.8rem; font-weight: 600; padding: 0.35rem 0.65rem;">
+                        <i class="fa-solid fa-clock"></i> PENDING
+                    </span>
+                    {% elif apt.get('payment_status') == 'FAILED' %}
+                    <span class="badge badge-danger" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.8rem; font-weight: 600; padding: 0.35rem 0.65rem;">
+                        <i class="fa-solid fa-circle-xmark"></i> FAILED
+                    </span>
+                    {% else %}
+                    <span class="badge badge-danger" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.8rem; font-weight: 600; padding: 0.35rem 0.65rem;">
+                        <i class="fa-solid fa-circle-xmark"></i> NOT PAID
+                    </span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    <span class="badge badge-{{ 'warning' if apt.get('status') in ('Pending', 'Assigned') else ('info' if apt.get('status') in ('In Progress', 'Partially Completed') else ('success' if apt.get('status') == 'Completed' else ('primary' if apt.get('status') == 'Accepted' else 'danger'))) }}">
+                        {{ apt.get('status') }}
+                    </span>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">Type: {{ apt.get('inspection_type') }}</div>
+                    {% if apt.get('inspection_type') in ('Online Inspection', 'Both Online & Field Inspection') %}
+                        {% if apt.get('online_status') == 'Pending' %}
+                        <span class="badge badge-warning" style="font-size: 0.7rem; display: inline-block; margin-top: 0.25rem;">Pending Online</span>
+                        {% else %}
+                        <span class="badge badge-success" style="font-size: 0.7rem; display: inline-block; margin-top: 0.25rem;">Online Completed</span>
+                        {% endif %}
+                    {% endif %}
+                    {% if apt.get('inspection_type') in ('Field Inspection', 'Both Online & Field Inspection') %}
+                        {% if apt.get('field_status') == 'Pending' %}
+                        <span class="badge badge-warning" style="font-size: 0.7rem; display: inline-block; margin-top: 0.25rem;">Pending Field</span>
+                        {% else %}
+                        <span class="badge badge-success" style="font-size: 0.7rem; display: inline-block; margin-top: 0.25rem;">Field Completed</span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    {% if apt.get('inspector_name') %}
+                        <div style="font-weight: 500;"><i class="fa-solid fa-user-tie"></i> {{ apt.get('inspector_name') }}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ apt.get('inspector_district') }}</div>
+                    {% else %}
+                        <span style="color: var(--warning);"><i class="fa-solid fa-clock"></i> Unassigned</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    {% if apt.get('status') in ('Pending', 'Assigned', 'Rejected', 'Inspector Rejected') %}
+                    <button type="button" class="btn btn-primary btn-assign-trigger" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="openAssignModal(this.dataset)"
+                        data-apt-id="{{ apt.get('appointment_id') }}"
+                        data-user-name="{{ apt.get('user_name') }}"
+                        data-date="{{ apt.get('appointment_date') }}"
+                        data-time="{{ apt.get('appointment_time') }}"
+                        data-address="{{ apt.get('address') }}"
+                        data-lat="{{ apt.get('latitude') or '' }}"
+                        data-lng="{{ apt.get('longitude') or '' }}"
+                        data-pred-id="{{ apt.get('prediction_id') }}"
+                        data-type="{{ apt.get('inspection_type') }}"
+                        data-rejected-inspector="{{ apt.get('rejected_inspector_id') or '' }}">
+                        <i class="fa-solid fa-user-plus"></i> {% if apt.get('inspector_name') %}Reassign{% else %}Assign{% endif %}
+                    </button>
+                    {% elif apt.get('status') == 'Completed' %}
+                    <span style="color: var(--success); font-size: 0.85rem; font-weight: 500;"><i class="fa-solid fa-check-circle"></i> Completed</span>
+                    {% else %}
+                    <span style="color: var(--text-secondary); font-size: 0.85rem;">{{ apt.get('status') }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No appointments found.</p>
+    {% endif %}
+</div>
+
+<!-- Assign Inspector Modal -->
+<div id="assignModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
+    <div class="modal-content glass-card" style="margin: 5% auto; width: 92%; max-width: 600px; padding: 2rem;">
+        <span onclick="closeAssignModal()" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+        <h3 style="margin-bottom: 1rem; color: var(--text-primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+            <i class="fa-solid fa-user-plus" style="color: var(--accent-primary);"></i> ASSIGN INSPECTOR
+        </h3>
+
+        <!-- Appointment Details Grid -->
+        <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid var(--glass-border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; font-size: 0.9rem;">
+            <div><strong style="color: var(--text-secondary);">User:</strong> <span id="assignUserName" style="font-weight: 600; color: #fff;"></span></div>
+            <div><strong style="color: var(--text-secondary);">Date:</strong> <span id="assignDate"></span></div>
+            <div><strong style="color: var(--text-secondary);">Time:</strong> <span id="assignTime"></span></div>
+            <div><strong style="color: var(--text-secondary);">Inspection Type:</strong> <span id="assignType" style="color: var(--accent-primary);"></span></div>
+            <div><strong style="color: var(--text-secondary);">Prediction ID:</strong> <span id="assignPredId"></span></div>
+            <div style="grid-column: 1 / -1;"><strong style="color: var(--text-secondary);"><i class="fa-solid fa-map-marker-alt" style="color: var(--danger);"></i> Location:</strong> <span id="assignAddress"></span></div>
+        </div>
+
+        <!-- Location Map Container -->
+        <div style="margin-bottom: 1rem;">
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.4rem; display: block;"><i class="fa-solid fa-map-location-dot"></i> Inspection Location Map Marker</label>
+            <div id="assignMap" style="height: 220px; width: 100%; border-radius: 8px; border: 1px solid var(--glass-border); z-index: 1;"></div>
+        </div>
+
+        <!-- Assignment Form -->
+        <form id="assignForm" action="{{ url_for('admin_appointments') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" id="modalAptId" name="appointment_id" value="">
+            
+            {% if inspectors and inspectors|length > 0 %}
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label for="inspector_select" style="font-weight: 600; margin-bottom: 0.4rem; display: block;">Select Active Inspector <span style="color:red;">*</span></label>
+                <select id="inspector_select" name="inspector_id" class="form-control" required style="width: 100%; padding: 0.65rem; background: rgba(15, 23, 42, 0.8); color: #fff; border: 1px solid var(--glass-border); border-radius: 6px;">
+                    <option value="" disabled selected>-- Select Active Inspector --</option>
+                    {% for insp in inspectors %}
+                    <option value="{{ insp.get('inspector_id') }}">{{ insp.get('full_name') }} ({{ insp.get('district') }} - {{ insp.get('designation') }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="closeAssignModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background: var(--accent-primary); border-color: var(--accent-primary);"><i class="fa-solid fa-check"></i> Confirm Assignment</button>
+            </div>
+            {% else %}
+            <div class="glass-card" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); padding: 1rem; margin-bottom: 1.5rem; color: var(--danger); text-align: center;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i><br>
+                <strong>No active inspectors are currently available for assignment.</strong>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="closeAssignModal()">Close</button>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<script>
+let assignLeafletMap = null;
+let assignLeafletMarker = null;
+
+document.addEventListener("DOMContentLoaded", function() {
+    // Handle Assign Form Submit Validation
+    const assignForm = document.getElementById('assignForm');
+    if (assignForm) {
+        assignForm.addEventListener('submit', function(e) {
+            const select = document.getElementById('inspector_select');
+            if (select && (!select.value || select.value === "")) {
+                e.preventDefault();
+                alert("Please select an inspector.");
+                select.focus();
+                return false;
+            }
+        });
+    }
+});
+
+function openAssignModal(data) {
+    if (!data) return;
+    document.getElementById('modalAptId').value = data.aptId || '';
+    document.getElementById('assignUserName').innerText = data.userName || 'N/A';
+    document.getElementById('assignDate').innerText = data.date || 'N/A';
+    document.getElementById('assignTime').innerText = data.time || 'N/A';
+    document.getElementById('assignType').innerText = data.type || 'Field Inspection';
+    document.getElementById('assignPredId').innerText = 'PRD-' + (data.predId || 'N/A');
+    document.getElementById('assignAddress').innerText = data.address || 'No address provided';
+
+    // Filter out previously rejected inspector if applicable
+    const select = document.getElementById('inspector_select');
+    if (select) {
+        select.selectedIndex = 0;
+        const rejectedId = data.rejectedInspector;
+        for (let i = 0; i < select.options.length; i++) {
+            const opt = select.options[i];
+            if (rejectedId && opt.value === String(rejectedId)) {
+                opt.disabled = true;
+                opt.style.display = 'none';
+            } else {
+                opt.disabled = false;
+                opt.style.display = 'block';
+            }
+        }
+    }
+
+    document.getElementById('assignModal').style.display = 'block';
+
+    // Initialize or Update Leaflet Map in Modal safely
+    setTimeout(function() {
+        try {
+            let lat = parseFloat(data.lat);
+            let lng = parseFloat(data.lng);
+            const hasValidCoords = !isNaN(lat) && !isNaN(lng);
+
+            if (!hasValidCoords) {
+                lat = 20.5937;
+                lng = 78.9629;
+            }
+
+            const mapContainer = document.getElementById('assignMap');
+            if (mapContainer && typeof L !== 'undefined') {
+                if (!assignLeafletMap) {
+                    assignLeafletMap = L.map('assignMap').setView([lat, lng], hasValidCoords ? 15 : 5);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; OpenStreetMap'
+                    }).addTo(assignLeafletMap);
+                } else {
+                    assignLeafletMap.setView([lat, lng], hasValidCoords ? 15 : 5);
+                    assignLeafletMap.invalidateSize();
+                }
+
+                if (assignLeafletMarker) {
+                    assignLeafletMap.removeLayer(assignLeafletMarker);
+                }
+
+                if (hasValidCoords) {
+                    assignLeafletMarker = L.marker([lat, lng]).addTo(assignLeafletMap)
+                        .bindPopup(`<b>${data.userName || 'Location'}</b><br>${data.address || ''}`).openPopup();
+                }
+            }
+        } catch(e) {
+            console.error("Map initialization warning:", e);
+        }
+    }, 200);
+}
+
+function closeAssignModal() {
+    const modal = document.getElementById('assignModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('assignModal');
+    if (event.target == modal) {
+        closeAssignModal();
+    }
+}
+</script>
+{% endblock %}

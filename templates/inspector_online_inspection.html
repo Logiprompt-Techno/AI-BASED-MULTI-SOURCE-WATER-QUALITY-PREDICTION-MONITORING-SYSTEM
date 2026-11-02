@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Online Inspections | AquaGuard AI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2 style="color: #60a5fa; display: flex; align-items: center; gap: 0.6rem;">
+            <i class="fa-solid fa-laptop-medical"></i> Dedicated Online Inspections
+        </h2>
+        <p style="color: var(--text-secondary);">Manage and evaluate virtual online water quality inspection assignments.</p>
+    </div>
+    <a href="{{ url_for('inspector_dashboard') }}" class="btn btn-outline">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="glass-card" style="overflow-x: auto; border-top: 4px solid #60a5fa;">
+    {% if appointments %}
+    <div style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+        Showing <strong>{{ appointments|length }}</strong> Online Inspection Assignment(s).
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1rem; color: var(--text-secondary);">ID</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Client Details</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Inspection Type & Schedule</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Water Quality Parameters</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Online Status</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for apt in appointments %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);" class="table-row-hover">
+                <td style="padding: 1rem; font-weight: 600; color: #60a5fa;">
+                    #APT-{{ apt.appointment_id }}
+                </td>
+                <td style="padding: 1rem;">
+                    <div style="font-weight: 600;">{{ apt.user_name }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fa-solid fa-phone"></i> {{ apt.phone_number }}</div>
+                    <a href="mailto:{{ apt.email }}" style="font-size: 0.85rem; color: var(--accent-primary);"><i class="fa-solid fa-envelope"></i> {{ apt.email }}</a>
+                </td>
+                <td style="padding: 1rem;">
+                    <span class="badge badge-info" style="font-size: 0.75rem; margin-bottom: 0.3rem; display: inline-block;">
+                        {{ apt.inspection_type }}
+                    </span>
+                    <div style="font-weight: 500; color: #60a5fa; font-size: 0.9rem;"><i class="fa-solid fa-calendar-day"></i> {{ (apt.online_date or apt.appointment_date)|safe_strftime('%Y-%m-%d') }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fa-solid fa-clock"></i> {{ apt.online_time or apt.appointment_time }}</div>
+                </td>
+                <td style="padding: 1rem;">
+                    <div style="font-weight: 500;"><i class="fa-solid fa-droplet" style="color: #60a5fa;"></i> {{ apt.water_source or 'Tap Water' }}</div>
+                    {% if apt.wqi is defined and apt.wqi is not none %}
+                        <div style="font-size: 0.85rem; color: #34d399; font-weight: 600;">WQI: {{ apt.wqi }} ({{ apt.wqi_cat }})</div>
+                    {% endif %}
+                    {% if apt.prediction %}
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">AI Result: 
+                            <span class="badge badge-{{ 'success' if apt.prediction == 'SAFE' else 'danger' }}" style="font-size: 0.7rem;">{{ apt.prediction }}</span>
+                        </div>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    {% if apt.status in ('Pending Inspector Approval', 'Pending', 'Pending Approval') or apt.assignment_status == 'Pending Inspector Approval' %}
+                        <span class="badge badge-warning" style="font-size: 0.8rem;">Pending Approval</span>
+                    {% elif apt.status in ('Accepted', 'Approved') or apt.assignment_status == 'Approved' or apt.online_status == 'Approved' %}
+                        <span class="badge badge-success" style="font-size: 0.8rem;">Approved</span>
+                    {% elif apt.status == 'In Progress' or apt.online_status == 'In Progress' %}
+                        <span class="badge badge-info" style="font-size: 0.8rem;">In Progress</span>
+                    {% elif apt.status == 'Completed' or apt.online_status == 'Completed' %}
+                        <span class="badge badge-success" style="font-size: 0.8rem;"><i class="fa-solid fa-check"></i> Completed</span>
+                    {% else %}
+                        <span class="badge badge-danger" style="font-size: 0.8rem;">{{ apt.status }}</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                        {% if apt.status in ('Pending Inspector Approval', 'Pending', 'Pending Approval') or apt.assignment_status == 'Pending Inspector Approval' %}
+                            <button type="button" class="btn btn-primary" style="padding: 0.4rem 0.75rem; font-size: 0.85rem; background-color: #10b981; border-color: #10b981;" onclick="openApproveModal({{ apt.appointment_id }})">
+                                <i class="fa-solid fa-check"></i> Approve
+                            </button>
+                            <button type="button" class="btn btn-outline" style="padding: 0.4rem 0.75rem; font-size: 0.85rem; color: var(--danger); border-color: var(--danger);" onclick="openRejectModal({{ apt.appointment_id }})">
+                                <i class="fa-solid fa-times"></i> Reject
+                            </button>
+                        {% elif apt.status in ('Accepted', 'Approved') or apt.assignment_status == 'Approved' or apt.online_status == 'Approved' %}
+                            <form action="{{ url_for('inspector_action', apt_id=apt.appointment_id) }}" method="POST" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <input type="hidden" name="action" value="start_inspection"/>
+                                <input type="hidden" name="target_mode" value="online"/>
+                                <button type="submit" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; background: linear-gradient(135deg, #0284c7, #0369a1); border: none;">
+                                    <i class="fa-solid fa-play"></i> Start Inspection
+                                </button>
+                            </form>
+                        {% elif apt.status in ('In Progress', 'Partially Completed') or apt.online_status == 'In Progress' %}
+                            <a href="{{ url_for('inspection_details', apt_id=apt.appointment_id) }}" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; background: linear-gradient(135deg, #3b82f6, #2563eb); border: none;">
+                                <i class="fa-solid fa-laptop-medical"></i> Open Online Inspection
+                            </a>
+                        {% elif apt.status == 'Completed' or apt.online_status == 'Completed' %}
+                            <a href="{{ url_for('inspection_details', apt_id=apt.appointment_id) }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; color: #60a5fa; border-color: #60a5fa;">
+                                <i class="fa-solid fa-file-invoice"></i> View Report
+                            </a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align: center; padding: 3rem 1rem;">
+        <i class="fa-solid fa-laptop" style="font-size: 3rem; color: var(--text-secondary); margin-bottom: 1rem;"></i>
+        <h3 style="color: var(--text-secondary);">No Online Inspection Assignments</h3>
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">You currently have no pending or assigned Online Inspections.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal for Approving Assignment -->
+<div id="approveModal" class="modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);">
+    <div class="glass-card" style="max-width: 450px; margin: 10% auto; padding: 1.5rem;">
+        <h3><i class="fa-solid fa-check-circle" style="color: #10b981;"></i> Approve Assignment</h3>
+        <p style="color: var(--text-secondary); margin: 1rem 0;">Are you sure you want to approve and accept this Online Inspection assignment?</p>
+        <form id="approveForm" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="action" value="approve"/>
+            <input type="hidden" name="target_mode" value="online"/>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" onclick="closeApproveModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background-color: #10b981; border-color: #10b981;">Confirm Approval</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal for Rejecting Assignment -->
+<div id="rejectModal" class="modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);">
+    <div class="glass-card" style="max-width: 450px; margin: 10% auto; padding: 1.5rem;">
+        <h3><i class="fa-solid fa-times-circle" style="color: var(--danger);"></i> Reject Assignment</h3>
+        <form id="rejectForm" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="action" value="reject"/>
+            <input type="hidden" name="target_mode" value="online"/>
+            <div class="form-group" style="margin: 1rem 0;">
+                <label for="rejection_reason">Reason for Rejection (Optional)</label>
+                <textarea id="rejection_reason" name="rejection_reason" class="form-control" rows="3" placeholder="Provide a reason for rejecting..."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" onclick="closeRejectModal()">Cancel</button>
+                <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openApproveModal(aptId) {
+    document.getElementById('approveForm').action = "/inspector/action/" + aptId;
+    document.getElementById('approveModal').style.display = 'block';
+}
+
+function closeApproveModal() {
+    document.getElementById('approveModal').style.display = 'none';
+}
+
+function openRejectModal(aptId) {
+    document.getElementById('rejectForm').action = "/inspector/action/" + aptId;
+    document.getElementById('rejectModal').style.display = 'block';
+}
+
+function closeRejectModal() {
+    document.getElementById('rejectModal').style.display = 'none';
+}
+</script>
+{% endblock %}

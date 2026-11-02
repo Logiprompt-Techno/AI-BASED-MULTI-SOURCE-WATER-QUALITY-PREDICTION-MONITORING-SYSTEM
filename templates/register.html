@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .validation-message {
+        color: #ff4d4f;
+        font-size: 0.85rem;
+        margin-top: 4px;
+        display: none;
+    }
+    .form-control.invalid {
+        border-color: #ff4d4f;
+    }
+    .form-control.valid {
+        border-color: #52c41a;
+    }
+</style>
+
+<div class="auth-container glass-card">
+    <div class="auth-header">
+        <h2>Create Account</h2>
+        <p>Join AquaGuard AI today</p>
+    </div>
+    
+    <form action="{{ url_for('register') }}" method="POST" id="registerForm" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" class="form-control" required placeholder="Enter your name" value="{{ request.form.get('name', '') }}">
+            <div class="validation-message" id="nameError">Name must contain letters and spaces only.</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" class="form-control" required placeholder="Enter your email" value="{{ request.args.get('email', request.form.get('email', '')) }}">
+            <div class="validation-message" id="emailError">Please enter a valid Gmail address ending with @gmail.com.</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="text" id="phone" name="phone" class="form-control" required placeholder="Enter your 10-digit phone number" value="{{ request.form.get('phone', '') }}">
+            <div class="validation-message" id="phoneError">Phone number must contain exactly 10 digits.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="location">Location</label>
+            <input type="text" id="location" name="location" class="form-control" required placeholder="Enter your location" value="{{ request.form.get('location', '') }}">
+            <div class="validation-message" id="locationError">Location is required.</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="role">Role</label>
+            <select id="role" name="role" class="form-control" required>
+                <option value="user" selected>User</option>
+                <option value="inspector">Inspector</option>
+            </select>
+        </div>
+
+        <div id="inspectorFields" style="display: none;">
+            <div class="form-group">
+                <label for="district">District</label>
+                <input type="text" id="district" name="district" class="form-control" placeholder="Enter your district">
+                <div class="validation-message" id="districtError">District is required for inspectors.</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="designation">Designation</label>
+                <input type="text" id="designation" name="designation" class="form-control" placeholder="Enter your designation (e.g. Senior Inspector)">
+                <div class="validation-message" id="designationError">Designation is required for inspectors.</div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" class="form-control" required placeholder="Create a password">
+            <div class="validation-message" id="passwordError">Password must contain at least one letter and one number.</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="confirm_password">Confirm Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" class="form-control" required placeholder="Confirm your password">
+            <div class="validation-message" id="confirmPasswordError">Password and Confirm Password do not match.</div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-block" id="submitBtn" disabled>Register</button>
+    </form>
+    
+    <p style="text-align: center; margin-top: 1.5rem; color: var(--text-secondary);">
+        Already have an account? <a href="{{ url_for('login') }}" style="color: var(--accent-primary);">Login here</a>
+    </p>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById("registerForm");
+    const nameInput = document.getElementById("name");
+    const emailInput = document.getElementById("email");
+    const phoneInput = document.getElementById("phone");
+    const locationInput = document.getElementById("location");
+    const roleSelect = document.getElementById("role");
+    const inspectorFields = document.getElementById("inspectorFields");
+    const districtInput = document.getElementById("district");
+    const designationInput = document.getElementById("designation");
+    const passwordInput = document.getElementById("password");
+
+    roleSelect.addEventListener("change", function() {
+        if (this.value === "inspector") {
+            inspectorFields.style.display = "block";
+        } else {
+            inspectorFields.style.display = "none";
+        }
+        checkFormValidity();
+    });
+    const confirmPasswordInput = document.getElementById("confirm_password");
+    const submitBtn = document.getElementById("submitBtn");
+
+    const validateName = () => {
+        const isValid = /^[A-Za-z\s]+$/.test(nameInput.value);
+        toggleValidation(nameInput, "nameError", isValid, nameInput.value.trim() === "");
+        return isValid;
+    };
+
+    const validateEmail = () => {
+        const isValid = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(emailInput.value);
+        toggleValidation(emailInput, "emailError", isValid, emailInput.value.trim() === "");
+        return isValid;
+    };
+
+    const validatePhone = () => {
+        const isValid = /^\d{10}$/.test(phoneInput.value);
+        toggleValidation(phoneInput, "phoneError", isValid, phoneInput.value.trim() === "");
+        return isValid;
+    };
+
+    const validateLocation = () => {
+        const isValid = locationInput.value.trim().length > 0;
+        toggleValidation(locationInput, "locationError", isValid, locationInput.value.trim() === "");
+        return isValid;
+    };
+
+    const validatePassword = () => {
+        const val = passwordInput.value;
+        const hasLetter = /[a-zA-Z]/.test(val);
+        const hasDigit = /\d/.test(val);
+        const isValid = hasLetter && hasDigit;
+        toggleValidation(passwordInput, "passwordError", isValid, val === "");
+        if (confirmPasswordInput.value.trim() !== "") {
+            validateConfirmPassword();
+        }
+        return isValid;
+    };
+
+    const validateConfirmPassword = () => {
+        const isValid = confirmPasswordInput.value === passwordInput.value && confirmPasswordInput.value.trim().length > 0;
+        toggleValidation(confirmPasswordInput, "confirmPasswordError", isValid, confirmPasswordInput.value.trim() === "");
+        return isValid;
+    };
+
+    const toggleValidation = (input, errorId, isValid, isEmpty) => {
+        const errorEl = document.getElementById(errorId);
+        if (isEmpty) {
+            input.classList.remove("invalid", "valid");
+            errorEl.style.display = "none";
+        } else if (isValid) {
+            input.classList.remove("invalid");
+            input.classList.add("valid");
+            errorEl.style.display = "none";
+        } else {
+            input.classList.remove("valid");
+            input.classList.add("invalid");
+            errorEl.style.display = "block";
+        }
+    };
+
+    const validateInspectorFields = () => {
+        if (roleSelect.value === "inspector") {
+            const districtValid = districtInput.value.trim().length > 0;
+            const designationValid = designationInput.value.trim().length > 0;
+            
+            toggleValidation(districtInput, "districtError", districtValid, districtInput.value.trim() === "");
+            toggleValidation(designationInput, "designationError", designationValid, designationInput.value.trim() === "");
+            
+            return districtValid && designationValid;
+        }
+        return true;
+    };
+
+    const checkFormValidity = () => {
+        const isValid = validateName() && validateEmail() && validatePhone() && validateLocation() && validatePassword() && validateConfirmPassword() && validateInspectorFields();
+        submitBtn.disabled = !isValid;
+    };
+    
+    districtInput.addEventListener("input", () => { validateInspectorFields(); checkFormValidity(); });
+    designationInput.addEventListener("input", () => { validateInspectorFields(); checkFormValidity(); });
+
+    // Add event listeners for real-time validation
+    nameInput.addEventListener("input", () => { validateName(); checkFormValidity(); });
+    emailInput.addEventListener("input", () => { validateEmail(); checkFormValidity(); });
+    phoneInput.addEventListener("input", () => { validatePhone(); checkFormValidity(); });
+    locationInput.addEventListener("input", () => { validateLocation(); checkFormValidity(); });
+    passwordInput.addEventListener("input", () => { validatePassword(); checkFormValidity(); });
+    confirmPasswordInput.addEventListener("input", () => { validateConfirmPassword(); checkFormValidity(); });
+    
+    // Initial check in case of pre-filled values
+    if (nameInput.value || emailInput.value || phoneInput.value || locationInput.value) {
+        if (emailInput.value) { validateEmail(); }
+        checkFormValidity();
+    }
+});
+</script>
+{% endblock %}

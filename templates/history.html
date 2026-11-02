@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div
+    style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2>Prediction History</h2>
+        <p style="color: var(--text-secondary);">View and manage your past water quality analyses</p>
+    </div>
+
+    <form action="{{ url_for('history') }}" method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <input type="text" name="search" class="form-control" placeholder="Search by source..." value="{{ search }}"
+            style="width: auto;">
+        <select name="sort" class="form-control" style="width: auto;" onchange="this.form.submit()">
+            <option value="desc" {% if sort=='desc' %}selected{% endif %}>Newest First</option>
+            <option value="asc" {% if sort=='asc' %}selected{% endif %}>Oldest First</option>
+        </select>
+        <button type="submit" class="btn btn-outline"><i class="fa-solid fa-search"></i></button>
+    </form>
+</div>
+
+<div class="glass-card" style="overflow-x: auto;">
+    {% if records %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1rem; color: var(--text-secondary);">Date</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Source</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Data Source</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">WQI Score</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Pollution</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Status</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in records %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);" class="table-row-hover">
+                <td style="padding: 1rem;">{{ item.timestamp|safe_strftime('%Y-%m-%d %H:%M') }}</td>
+                <td style="padding: 1rem; font-weight: 500;">{{ item.source }}</td>
+                <td style="padding: 1rem;">
+                    {% if item.prediction_source == 'Laboratory PDF' %}
+                    <span class="badge badge-info" style="font-size: 0.75rem;"><i class="fa-solid fa-file-pdf"></i>
+                        PDF</span>
+                    {% else %}
+                    <span class="badge"
+                        style="background: rgba(255,255,255,0.1); color: var(--text-secondary); font-size: 0.75rem;">Manual</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    <span
+                        style="font-weight: bold; color: {{ 'var(--success)' if item.wqi_category in ['Excellent', 'Good'] else ('var(--warning)' if item.wqi_category == 'Poor' else 'var(--danger)') }}">
+                        {{ item.wqi }} ({{ item.wqi_category }})
+                    </span>
+                </td>
+                <td style="padding: 1rem;">
+                    <span
+                        class="badge badge-{{ 'success' if item.pollution_level == 'Low' else ('warning' if item.pollution_level == 'Medium' else 'danger') }}">
+                        {{ item.pollution_level }}
+                    </span>
+                </td>
+                <td
+                    style="padding: 1rem; font-weight: 600; color: {{ 'var(--success)' if item.status == 'SAFE' else 'var(--danger)' }}">
+                    {{ item.status }}
+                </td>
+                <td style="padding: 1rem; display: flex; gap: 0.25rem; align-items: center;">
+                    <a href="{{ url_for('download_report', prediction_id=item.get('id')) }}" class="btn btn-outline"
+                        style="padding: 0.25rem 0.5rem; color: #3b82f6; border-color: #3b82f6;" title="Download PDF"><i
+                            class="fa-solid fa-file-pdf"></i></a>
+                    <form action="{{ url_for('delete_history', record_id=item.get('id')) }}" method="POST"
+                        style="display:inline; margin:0;"
+                        onsubmit="return confirm('Are you sure you want to delete this record?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit" class="btn btn-outline"
+                            style="padding: 0.25rem 0.5rem; color: var(--danger); border-color: var(--danger);"
+                            title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 2rem;">
+        {% if page > 1 %}
+        <a href="{{ url_for('history', page=page-1, search=search, sort=sort) }}" class="btn btn-outline">&laquo;
+            Prev</a>
+        {% endif %}
+
+        <span style="padding: 0.5rem 1rem; background: rgba(255,255,255,0.1); border-radius: 0.5rem;">Page {{ page }} of
+            {{ total_pages }}</span>
+
+        {% if page < total_pages %} <a href="{{ url_for('history', page=page+1, search=search, sort=sort) }}"
+            class="btn btn-outline">Next &raquo;</a>
+            {% endif %}
+    </div>
+
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No predictions found matching your
+        criteria.</p>
+    {% endif %}
+</div>
+
+<!-- Appointments Section -->
+<div style="margin-top: 4rem; margin-bottom: 2rem;">
+    <h2>Your Inspections</h2>
+    <p style="color: var(--text-secondary);">Track your booked water quality inspections</p>
+</div>
+
+<div class="glass-card" style="overflow-x: auto;">
+    {% if appointments %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1rem; color: var(--text-secondary);">Date & Time</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Address</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Inspector</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Status</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for apt in appointments %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);" class="table-row-hover">
+                <td style="padding: 1rem;">
+                    {% if apt.get('inspection_type') == 'Both Online & Field Inspection' or (apt.get('online_date') and apt.get('field_date')) %}
+                        <div style="font-weight: 500; font-size: 0.85rem; color: #60a5fa;"><i class="fa-solid fa-laptop"></i> Online: {{ apt.get('online_date')|safe_strftime('%Y-%m-%d') or apt.get('appointment_date')|safe_strftime('%Y-%m-%d') }} {{ apt.get('online_time') or '' }}</div>
+                        <div style="font-weight: 500; font-size: 0.85rem; color: #34d399; margin-top: 0.25rem;"><i class="fa-solid fa-compass"></i> Field: {{ apt.get('field_date')|safe_strftime('%Y-%m-%d') or apt.get('appointment_date')|safe_strftime('%Y-%m-%d') }} {{ apt.get('field_time') or '' }}</div>
+                    {% elif apt.get('inspection_type') == 'Online Inspection' %}
+                        <div style="font-weight: 500; font-size: 0.85rem; color: #60a5fa;"><i class="fa-solid fa-laptop"></i> {{ apt.get('online_date')|safe_strftime('%Y-%m-%d') or apt.get('appointment_date')|safe_strftime('%Y-%m-%d') }}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ apt.get('online_time') or apt.get('appointment_time') }}</div>
+                    {% elif apt.get('inspection_type') == 'Field Inspection' %}
+                        <div style="font-weight: 500; font-size: 0.85rem; color: #34d399;"><i class="fa-solid fa-compass"></i> {{ apt.get('field_date')|safe_strftime('%Y-%m-%d') or apt.get('appointment_date')|safe_strftime('%Y-%m-%d') }}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ apt.get('field_time') or apt.get('appointment_time') }}</div>
+                    {% else %}
+                        <div style="font-weight: 500;">{{ (apt.get('online_date') or apt.get('field_date') or apt.get('appointment_date'))|safe_strftime('%Y-%m-%d') }}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ apt.get('online_time') or apt.get('field_time') or apt.get('appointment_time') }}</div>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem; font-size: 0.9rem;">
+                    <i class="fa-solid fa-map-marker-alt" style="color: var(--danger);"></i> {{ apt.address }}
+                </td>
+                <td style="padding: 1rem;">
+                    {% if apt.inspector_name %}
+                    <div style="font-weight: 500;"><i class="fa-solid fa-user-tie"></i> {{ apt.inspector_name }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fa-solid fa-envelope"></i>
+                        {{ apt.inspector_email }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fa-solid fa-phone"></i> {{
+                        apt.inspector_phone }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);"><i
+                            class="fa-solid fa-map-marker-alt"></i> {{ apt.inspector_district }}</div>
+                    {% else %}
+                    <span style="color: var(--text-secondary);">Waiting for Admin to Assign an Inspector</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    <span
+                        class="badge badge-{{ 'warning' if apt.status == 'Pending' else ('info' if apt.status in ('In Progress', 'Partially Completed') else ('success' if apt.status == 'Completed' else ('primary' if apt.status == 'Accepted' else 'danger'))) }}">
+                        {{ apt.status }}
+                    </span>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">Type: {{ apt.inspection_type }}</div>
+                    {% if apt.inspection_type in ('Online Inspection', 'Both Online & Field Inspection') %}
+                        {% if apt.online_status == 'Pending' %}
+                        <span class="badge badge-warning" style="font-size: 0.7rem; display: inline-block; margin-top: 0.25rem;">Pending Online</span>
+                        {% else %}
+                        <span class="badge badge-success" style="font-size: 0.7rem; display: inline-block; margin-top: 0.25rem;">Online Completed</span>
+                        {% endif %}
+                    {% endif %}
+                    {% if apt.inspection_type in ('Field Inspection', 'Both Online & Field Inspection') %}
+                        {% if apt.field_status == 'Pending' %}
+                        <span class="badge badge-warning" style="font-size: 0.7rem; display: inline-block; margin-top: 0.25rem;">Pending Field</span>
+                        {% else %}
+                        <span class="badge badge-success" style="font-size: 0.7rem; display: inline-block; margin-top: 0.25rem;">Field Completed</span>
+                        {% endif %}
+                    {% endif %}
+                    {% if apt.parsed_findings and apt.parsed_findings.final_recommendation %}
+                    <br><span style="font-size: 0.8rem; margin-top:0.25rem; display:inline-block;">Final: {{
+                        apt.parsed_findings.final_recommendation }}</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    {% if apt.status == 'Completed' %}
+                        {% if apt.is_paid %}
+                            <div style="margin-bottom: 0.5rem; color: var(--success); font-weight: bold;">
+                                <i class="fa-solid fa-check"></i> Payment Successful
+                            </div>
+                            <button class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-bottom: 0.5rem;" onclick="viewInspectionReport({{ apt.appointment_id }})">
+                                <i class="fa-solid fa-eye"></i> View Inspection Report
+                            </button>
+                            {% if apt.get('report_id') %}
+                            <a href="{{ url_for('download_inspection_report', report_id=apt.get('report_id')) }}" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; color: #3b82f6; border-color: #3b82f6;"><i class="fa-solid fa-file-pdf"></i> Download PDF</a>
+                            {% endif %}
+                            
+                            <!-- Hidden JSON data for modal -->
+                            <div id="report-data-{{ apt.get('appointment_id') or apt.appointment_id }}" style="display:none;">
+                                {% if apt.parsed_findings %}
+                                    <div class="report-content">
+                                        <h4>Final Recommendation: {{ apt.parsed_findings.final_recommendation }}</h4>
+                                        <h5 style="margin-top: 1rem;">Inspector Remarks & Precautions:</h5>
+                                        <p><strong>Remarks:</strong> {{ apt.parsed_findings.inspector_comments }}</p>
+                                        {% if apt.parsed_findings.recommended_precautions %}
+                                        <p><strong>Precautions:</strong> {{ apt.parsed_findings.recommended_precautions }}</p>
+                                        {% endif %}
+                                        <p><strong>Purification Method:</strong> {{ apt.parsed_findings.purification_method }}</p>
+                                        {% if apt.parsed_findings.follow_up_required == 'Yes' %}
+                                        <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(239, 68, 68, 0.1); border-left: 3px solid var(--danger); border-radius: 4px;">
+                                            <strong><i class="fa-solid fa-triangle-exclamation"></i> Follow-up Required</strong><br>
+                                            Follow-up Date: {{ apt.parsed_findings.follow_up_date }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <p>No detailed electronic data available for this report.</p>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div style="margin-bottom: 0.5rem; color: var(--warning); font-weight: bold;">
+                                <i class="fa-solid fa-lock"></i> Report Locked
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                                Report Access Fee: ₹50
+                            </div>
+                            {% if apt.get('report_id') %}
+                            <a href="{{ url_for('payment', report_id=apt.get('report_id')) }}" class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">
+                                Pay ₹50 & View Report
+                            </a>
+                            {% endif %}
+                        {% endif %}
+                        
+                        <!-- Feedback Section -->
+                        <div style="margin-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.75rem;">
+                            {% if apt.feedback_rating %}
+                                <div style="color: #fbbf24; font-size: 0.85rem; font-weight: 500;">
+                                    Your Rating: 
+                                    {% for i in range(apt.feedback_rating) %}
+                                        <i class="fa-solid fa-star"></i>
+                                    {% endfor %}
+                                    {% for i in range(5 - apt.feedback_rating) %}
+                                        <i class="fa-regular fa-star" style="opacity:0.3;"></i>
+                                    {% endfor %}
+                                    {% if apt.feedback_comments %}
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary); font-style: italic; margin-top: 0.2rem; cursor: help;" title="{{ apt.feedback_comments }}">
+                                        "{{ apt.feedback_comments|truncate(40) }}"
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <a href="{{ url_for('submit_feedback', apt_id=apt.appointment_id) }}" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; color: var(--accent-primary); border-color: var(--accent-primary); text-align: center; display: inline-block;">
+                                    <i class="fa-solid fa-star"></i> Submit Feedback
+                                </a>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                    <span style="color: var(--text-secondary); font-size: 0.85rem;"><i class="fa-solid fa-clock"></i> Report Not Available</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">You haven't booked any inspections yet.</p>
+    {% endif %}
+</div>
+
+<!-- Details Modal -->
+<div id="userReportModal" class="modal"
+    style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content glass-card" style="margin: 5% auto; width: 90%; max-width: 600px; padding: 2rem;">
+        <span onclick="closeUserReportModal()"
+            style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+        <h3 style="margin-bottom: 1.5rem;">Inspection Report Details</h3>
+        <div id="userReportBody"></div>
+    </div>
+</div>
+
+<script>
+    function viewInspectionReport(aptId) {
+        var content = document.getElementById('report-data-' + aptId).innerHTML;
+        document.getElementById('userReportBody').innerHTML = content;
+        document.getElementById('userReportModal').style.display = 'block';
+    }
+    function closeUserReportModal() {
+        document.getElementById('userReportModal').style.display = 'none';
+    }
+    window.addEventListener('click', function (event) {
+        var modal = document.getElementById('userReportModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    });
+</script>
+
+
+
+{% endblock %}

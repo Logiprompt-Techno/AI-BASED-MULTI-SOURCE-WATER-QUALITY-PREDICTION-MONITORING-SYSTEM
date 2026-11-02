@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+
+{% block title %}Inspection Details | AquaGuard AI{% endblock %}
+
+{% block content %}
+<!-- Leaflet Map CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div style="margin-bottom: 2rem;">
+    <h2><i class="fa-solid fa-clipboard-list"></i> Inspection Details (INS-{{ details.appointment_id }})</h2>
+    <p style="color: var(--text-secondary);">Review the AI prediction and provide practical safety recommendations.</p>
+</div>
+
+<!-- Status Banner for Inspector -->
+{% if session.get('role') == 'inspector' %}
+    {% if details.status in ('Accepted', 'Approved') and details.online_status != 'Completed' %}
+    <div class="glass-card" style="margin-bottom: 2rem; border-left: 5px solid #f59e0b; background: rgba(245, 158, 11, 0.08); padding: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <h3 style="margin: 0; color: #f59e0b; display: flex; align-items: center; gap: 0.6rem;">
+                    <i class="fa-solid fa-clock-rotate-left" style="font-size: 1.5rem;"></i> Status: Accepted - Ready to Start
+                </h3>
+                <p style="margin-top: 0.5rem; color: var(--text-secondary); margin-bottom: 0;">
+                    You have accepted this Online Inspection assignment. Click <strong>Start Inspection</strong> to change status to "In Progress" and unlock measurement recommendation entry.
+                </p>
+            </div>
+            <form action="{{ url_for('inspector_action', apt_id=details.appointment_id) }}" method="POST" style="margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="action" value="start_inspection"/>
+                <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); border: none; font-size: 1rem; padding: 0.75rem 1.5rem; display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600;">
+                    <i class="fa-solid fa-play"></i> Start Inspection
+                </button>
+            </form>
+        </div>
+    </div>
+    {% elif details.status in ('In Progress', 'Partially Completed') and details.online_status != 'Completed' %}
+    <div class="glass-card" style="margin-bottom: 2rem; border-left: 5px solid #3b82f6; background: rgba(59, 130, 246, 0.08); padding: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <h3 style="margin: 0; color: #60a5fa; display: flex; align-items: center; gap: 0.6rem;">
+                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem;"></i> Status: In Progress
+                </h3>
+                <p style="margin-top: 0.5rem; color: var(--text-secondary); margin-bottom: 0;">
+                    Inspection is currently in progress. Enter your recommendations and precautions below to complete the inspection.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% elif details.online_status == 'Completed' %}
+    <div class="glass-card" style="margin-bottom: 2rem; border-left: 5px solid #10b981; background: rgba(16, 185, 129, 0.08); padding: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <h3 style="margin: 0; color: #10b981; display: flex; align-items: center; gap: 0.6rem;">
+                    <i class="fa-solid fa-circle-check" style="font-size: 1.5rem;"></i> Status: Completed
+                </h3>
+                <p style="margin-top: 0.5rem; color: var(--text-secondary); margin-bottom: 0;">
+                    Online Inspection recommendations have been submitted and finalized.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- User Information -->
+    <div class="glass-card">
+        <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;"><i class="fa-solid fa-user"></i> Client Information</h3>
+        <p><strong>Name:</strong> {{ details.user_name }}</p>
+        <p><strong>Email:</strong> {{ details.email }}</p>
+        <p><strong>Phone:</strong> {{ details.phone_number }}</p>
+        <p><strong>Address:</strong> {{ details.address }}</p>
+        <p><strong>Request Date:</strong> {{ details.created_at|safe_strftime('%Y-%m-%d') }}</p>
+    </div>
+
+    <!-- Sample Information -->
+    <div class="glass-card">
+        <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;"><i class="fa-solid fa-flask"></i> Sample Information</h3>
+        <p><strong>Sample ID:</strong> PRD-{{ details.prediction_id }}</p>
+        <p><strong>Water Source:</strong> {{ details.water_source }}</p>
+        <p><strong>Inspection Status:</strong> <span class="badge badge-info">{{ details.status }}</span></p>
+        <p><strong>Inspection Type:</strong> {{ details.inspection_type }}</p>
+        {% if details.inspection_type == 'Both Online & Field Inspection' or (details.online_date and details.field_date) %}
+            <p style="color: #60a5fa;"><strong><i class="fa-solid fa-laptop"></i> Online Preferred Date & Time:</strong> {{ details.online_date|safe_strftime('%Y-%m-%d') or details.appointment_date|safe_strftime('%Y-%m-%d') }} {{ details.online_time or details.appointment_time }}</p>
+            <p style="color: #34d399;"><strong><i class="fa-solid fa-compass"></i> Field Preferred Date & Time:</strong> {{ details.field_date|safe_strftime('%Y-%m-%d') or details.appointment_date|safe_strftime('%Y-%m-%d') }} {{ details.field_time or details.appointment_time }}</p>
+        {% elif details.inspection_type == 'Field Inspection' %}
+            <p style="color: #34d399;"><strong><i class="fa-solid fa-compass"></i> Field Inspection Date & Time:</strong> {{ details.field_date|safe_strftime('%Y-%m-%d') or details.appointment_date|safe_strftime('%Y-%m-%d') }} {{ details.field_time or details.appointment_time }}</p>
+        {% else %}
+            <p style="color: #60a5fa;"><strong><i class="fa-solid fa-laptop"></i> Online Inspection Date & Time:</strong> {{ details.online_date|safe_strftime('%Y-%m-%d') or details.appointment_date|safe_strftime('%Y-%m-%d') }} {{ details.online_time or details.appointment_time }}</p>
+        {% endif %}
+    </div>
+    
+    <!-- AI Prediction -->
+    <div class="glass-card">
+        <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;"><i class="fa-solid fa-robot"></i> AI Prediction Details</h3>
+        <p><strong>Predicted WQI:</strong> {{ details.wqi }} ({{ details.wqi_cat }})</p>
+        <p><strong>Prediction Result:</strong> 
+            <span class="badge badge-{{ 'success' if details.prediction == 'SAFE' else 'danger' }}">{{ details.prediction }}</span>
+        </p>
+        <p><strong>Pollution Level:</strong> {{ details.pollution_level }}</p>
+    </div>
+</div>
+
+<!-- Saved Inspection Location Card -->
+<div class="glass-card" style="margin-bottom: 2rem; border-left: 4px solid var(--accent-primary);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <h3 style="margin: 0;"><i class="fa-solid fa-map-location-dot" style="color: var(--accent-primary);"></i> Saved Inspection Location</h3>
+        {% if details.latitude and details.longitude %}
+        <a href="https://www.google.com/maps/search/?api=1&query={{ details.latitude }},{{ details.longitude }}" target="_blank" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.4rem 0.9rem; display: inline-flex; align-items: center; gap: 0.4rem; background: var(--accent-primary);">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Maps
+        </a>
+        {% elif details.address %}
+        <a href="https://www.google.com/maps/search/?api=1&query={{ details.address|urlencode }}" target="_blank" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.4rem 0.9rem; display: inline-flex; align-items: center; gap: 0.4rem; background: var(--accent-primary);">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Maps
+        </a>
+        {% endif %}
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; align-items: center;">
+        <div>
+            <p style="margin-bottom: 0.5rem;"><strong>Address:</strong> {{ details.address }}</p>
+            {% if details.latitude and details.longitude %}
+            <p style="margin-bottom: 0.5rem; color: #60a5fa;"><strong>Coordinates:</strong> Lat {{ details.latitude }}, Lng {{ details.longitude }}</p>
+            {% endif %}
+            <p style="margin-bottom: 0.5rem;"><strong>Contact Client:</strong> {{ details.phone_number }} / {{ details.email }}</p>
+        </div>
+        <div id="detailsMap" style="height: 250px; width: 100%; border-radius: 8px; border: 1px solid var(--glass-border); z-index: 1;"></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const inspectionDetails = {{ (details if details else None)|tojson }};
+    {% if details and details.latitude and details.longitude %}
+    const lat = {{ details.latitude }};
+    const lng = {{ details.longitude }};
+    const map = L.map('detailsMap').setView([lat, lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    const popupAddress = inspectionDetails && inspectionDetails.address ? inspectionDetails.address : '';
+    L.marker([lat, lng]).addTo(map).bindPopup("<b>Client Water Location</b><br>" + popupAddress).openPopup();
+    {% else %}
+    const map = L.map('detailsMap').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    {% endif %}
+});
+</script>
+
+<!-- Water Quality Parameters Overview -->
+<div class="glass-card" style="margin-bottom: 2rem;">
+    <h3 style="margin-bottom: 1rem;"><i class="fa-solid fa-chart-bar"></i> Water Quality Parameters</h3>
+    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Review submitted laboratory values.</p>
+    
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--glass-border);">
+                    <th style="padding: 1rem;">Parameter</th>
+                    <th style="padding: 1rem;">Submitted Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.75rem 1rem;">Temperature (°C)</td>
+                    <td style="padding: 0.75rem 1rem;">{{ details.temperature }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.75rem 1rem;">pH</td>
+                    <td style="padding: 0.75rem 1rem;">{{ details.ph }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.75rem 1rem;">Dissolved Oxygen (mg/L)</td>
+                    <td style="padding: 0.75rem 1rem;">{{ details.dissolved_oxygen }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.75rem 1rem;">Biological Oxygen Demand (mg/L)</td>
+                    <td style="padding: 0.75rem 1rem;">{{ details.bod }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.75rem 1rem;">Conductivity (µS/cm)</td>
+                    <td style="padding: 0.75rem 1rem;">{{ details.conductivity }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.75rem 1rem;">Nitrate (mg/L)</td>
+                    <td style="padding: 0.75rem 1rem;">{{ details.nitrate }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.75rem 1rem;">Faecal Streptococci (MPN/100ml)</td>
+                    <td style="padding: 0.75rem 1rem;">{{ details.faecal_streptococci }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.75rem 1rem;">Faecal Coliform (MPN/100ml)</td>
+                    <td style="padding: 0.75rem 1rem;">{{ details.faecal_coliform }}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 0.75rem 1rem;">Total Coliform (MPN/100ml)</td>
+                    <td style="padding: 0.75rem 1rem;">{{ details.total_coliform }}</td>
+                </tr>
+                {% if details.custom_parameters %}
+                {% set custom_params = details.custom_parameters|fromjson %}
+                {% if custom_params %}
+                {% for param in custom_params %}
+                <tr>
+                    <td style="padding: 0.75rem 1rem;">{{ param.name }} {% if param.unit %}({{ param.unit }}){% endif %} <span style="font-size: 0.75em; color: var(--accent-primary);">(Custom)</span></td>
+                    <td style="padding: 0.75rem 1rem;">{{ param.value }}</td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recommendations Entry Section -->
+{% if session.get('role') == 'inspector' and details.status in ('Accepted', 'Approved') and details.online_status != 'Completed' %}
+    <!-- Locked State for Accepted - Ready to Start -->
+    <div class="glass-card" style="text-align: center; padding: 3rem 1.5rem; border: 1px dashed #f59e0b; margin-bottom: 2rem;">
+        <i class="fa-solid fa-lock" style="font-size: 2.5rem; color: #f59e0b; margin-bottom: 1rem;"></i>
+        <h3 style="margin-bottom: 0.5rem;">Measurement & Recommendation Entry Locked</h3>
+        <p style="color: var(--text-secondary); max-width: 550px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
+            You have accepted this inspection. Click <strong>Start Inspection</strong> to set the status to "In Progress" and unlock the complete measurement and recommendation submission form.
+        </p>
+        <form action="{{ url_for('inspector_action', apt_id=details.appointment_id) }}" method="POST" style="display: inline-block;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="action" value="start_inspection"/>
+            <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); border: none; font-size: 1.05rem; padding: 0.85rem 1.75rem; display: inline-flex; align-items: center; gap: 0.6rem; font-weight: 600;">
+                <i class="fa-solid fa-play"></i> Start Inspection Now
+            </button>
+        </form>
+    </div>
+{% else %}
+    <!-- Active Recommendation Form (In Progress or Completed) -->
+    {% if session.get('role') == 'inspector' and details.online_status != 'Completed' %}
+    <form action="{{ url_for('complete_inspection', apt_id=details.appointment_id) }}" method="POST" id="onlineInspectionForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+        <!-- Recommended Actions / Precautions -->
+        <div class="glass-card" style="margin-bottom: 2rem;">
+            <h3 style="margin-bottom: 1rem;"><i class="fa-solid fa-shield-halved"></i> Recommended Actions / Precautions</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Provide practical safety guidance based on the detected water-quality problem.</p>
+            <textarea name="recommended_precautions" class="form-control" rows="5" placeholder='e.g., "Do not use the water for drinking or cooking until confirmed safe. Use a safe alternative source. Clean and disinfect storage tanks..."' required></textarea>
+        </div>
+
+        <!-- Recommended Purification Method & Comments -->
+        <div class="glass-card" style="margin-bottom: 2rem;">
+            <h3 style="margin-bottom: 1rem;"><i class="fa-solid fa-filter"></i> Specific Recommendations</h3>
+            
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label style="font-weight: 500;">Recommended Water Purification Method</label>
+                <select name="purification_method" class="form-control" required style="padding: 0.5rem;">
+                    <option value="">Select a method...</option>
+                    <option value="Boiling">Boiling</option>
+                    <option value="Chlorination">Chlorination</option>
+                    <option value="RO Purification">RO Purification</option>
+                    <option value="UV Purification">UV Purification</option>
+                    <option value="UF Filtration">UF Filtration</option>
+                    <option value="Activated Carbon Filtration">Activated Carbon Filtration</option>
+                    <option value="Sand Filtration">Sand Filtration</option>
+                    <option value="Combination Treatment">Combination Treatment</option>
+                    <option value="Laboratory Testing Required">Laboratory Testing Required</option>
+                    <option value="None (Safe as is)">None (Safe as is)</option>
+                </select>
+            </div>
+
+            <input type="hidden" name="inspector_comments" id="inspector_comments" value="">
+
+            <div id="method_details_section" style="margin-top: 1.5rem; display: none; background: rgba(0, 0, 0, 0.2); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--glass-border);">
+                <h4 style="margin-bottom: 1rem; color: var(--accent-primary);"><i class="fa-solid fa-circle-info"></i> Recommended Method Details</h4>
+                <div id="method_details_content" style="font-size: 0.95rem; line-height: 1.6; color: var(--text-primary);">
+                    <!-- Populated via Javascript -->
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem;">
+                <div class="form-group">
+                    <label style="font-weight: 500;">Follow-up Required?</label>
+                    <select name="follow_up_required" id="follow_up_required" class="form-control" required style="padding: 0.5rem;">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                    </select>
+                </div>
+                <div class="form-group" id="follow_up_date_group" style="display: none;">
+                    <label style="font-weight: 500;">Follow-up Date</label>
+                    <input type="date" name="follow_up_date" id="follow_up_date" class="form-control" style="padding: 0.5rem; width: 100%;">
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.getElementById('follow_up_required').addEventListener('change', function() {
+                if(this.value === 'Yes') {
+                    document.getElementById('follow_up_date_group').style.display = 'block';
+                    document.getElementById('follow_up_date').required = true;
+                } else {
+                    document.getElementById('follow_up_date_group').style.display = 'none';
+                    document.getElementById('follow_up_date').required = false;
+                }
+            });
+
+            const methodDetails = {
+                "Boiling": {
+                    "what": "Boiling is the simplest and oldest method of water purification.",
+                    "used_for": "Killing biological contaminants like bacteria, viruses, and parasites.",
+                    "wq_help": "Neutralizes pathogens, making water microbiologically safe.",
+                    "use": "Bring water to a rolling boil for at least 1-3 minutes. Allow it to cool before drinking.",
+                    "precautions": "Does not remove chemical pollutants, heavy metals, or physical sediments.",
+                    "maintenance": "Store in clean, sanitized, airtight containers to prevent recontamination."
+                },
+                "Chlorination": {
+                    "what": "Chemical disinfection using chlorine or chlorine compounds.",
+                    "used_for": "Eliminating bacteria, viruses, and other biological pathogens.",
+                    "wq_help": "Provides residual disinfection protection against subsequent microbial growth.",
+                    "use": "Add disinfection tablets/liquid according to manufacturer instructions. Let stand for 30 minutes.",
+                    "precautions": "Over-chlorination can be toxic and produce harmful disinfection byproducts.",
+                    "maintenance": "Regularly check chlorine levels and store chemical agents in dry, cool places."
+                },
+                "RO Purification": {
+                    "what": "Reverse Osmosis (RO) uses a semipermeable membrane to filter water.",
+                    "used_for": "Removing dissolved solids, heavy metals, chemical toxins, and pathogens.",
+                    "wq_help": "Significantly reduces TDS, lead, arsenic, fluoride, and microbiological particles.",
+                    "use": "Point-of-use under-sink or countertop RO filtration systems.",
+                    "precautions": "Wastes a significant amount of water; also removes healthy essential minerals.",
+                    "maintenance": "Replace sediment and carbon pre-filters every 6 months; replace RO membrane every 2 years."
+                },
+                "UV Purification": {
+                    "what": "Ultraviolet radiation treatment to disinfect water.",
+                    "used_for": "Neutralizing pathogens, bacteria, viruses, and cysts.",
+                    "wq_help": "Disinfects without chemicals, altering DNA of microbes to render them harmless.",
+                    "use": "Flow-through UV chamber unit connected to the main water supply line.",
+                    "precautions": "Requires clear water (suspended particles block UV rays); does not remove dissolved chemicals.",
+                    "maintenance": "Clean the quartz sleeve periodically; replace the UV lamp annually."
+                },
+                "UF Filtration": {
+                    "what": "Ultrafiltration (UF) uses hollow fiber membranes to physically filter water.",
+                    "used_for": "Filtering out suspended solids, large organic molecules, and pathogens.",
+                    "wq_help": "Screens out cysts, bacteria, and turbidity without chemical additives.",
+                    "use": "Gravity-fed or pressurized line-mounted UF filters.",
+                    "precautions": "Does not filter dissolved salts, heavy metals, or small chemical molecules (low TDS reduction).",
+                    "maintenance": "Periodically flush the membrane to clear accumulation; replace UF cartridge annually."
+                },
+                "Activated Carbon Filtration": {
+                    "what": "Absorption filtration using highly porous activated carbon blocks.",
+                    "used_for": "Removing chlorine, bad taste, odour, organic chemical compounds, and radon.",
+                    "wq_help": "Absorbs organic contaminants and chlorine, improving taste and clarity.",
+                    "use": "Pitcher filters, faucet attachments, or pre-filters in larger systems.",
+                    "precautions": "Does not remove heavy metals, fluoride, or pathogens on its own.",
+                    "maintenance": "Change filter cartridges regularly (typically every 3-6 months) to avoid bacterial growth."
+                },
+                "Sand Filtration": {
+                    "what": "Physical filtration using layers of graded sand and gravel.",
+                    "used_for": "Reducing turbidity, large suspended solids, and organic matter.",
+                    "wq_help": "Clarifies muddy or turbid water by trapping physical debris.",
+                    "use": "Pre-treatment step in household or community water collection systems.",
+                    "precautions": "Cannot disinfect water or remove microscopic dissolved chemicals on its own.",
+                    "maintenance": "Regularly backwash the sand bed to remove trapped particulate matter."
+                },
+                "Combination Treatment": {
+                    "what": "Multistage purification combining filtration, absorption, and disinfection.",
+                    "used_for": "Treating broad-spectrum contaminants and heavily polluted water.",
+                    "wq_help": "Optimizes taste, TDS, safety, and clarity by chaining different methods.",
+                    "use": "Chained units, e.g., Sediment + Activated Carbon + RO + UV.",
+                    "precautions": "High setup energy consumption and operational costs.",
+                    "maintenance": "Keep log of individual component replacement intervals (pre-filters vs membranes vs UV lamps)."
+                },
+                "Laboratory Testing Required": {
+                    "what": "Professional laboratory assay check of water chemical/biological profile.",
+                    "used_for": "Identifying unknown toxins, heavy metals, or source contamination.",
+                    "wq_help": "Provides exact scientific quantification of parameters to choose the right purification method.",
+                    "use": "Collect sample in sterile container and deliver to certified laboratory.",
+                    "precautions": "Do not use water for drinking/cooking until lab results confirm safety.",
+                    "maintenance": "Perform test annually or whenever water tastes/smells/looks different."
+                },
+                "None (Safe as is)": {
+                    "what": "Direct source consumption without additional purification.",
+                    "used_for": "Water sources which meet safe drinking standards.",
+                    "wq_help": "Preserves natural minerals.",
+                    "use": "Direct drinking from tap/well.",
+                    "precautions": "Regularly monitor source water quality to detect sudden changes.",
+                    "maintenance": "Clean storage and overhead tanks every 6 months."
+                }
+            };
+
+            const selectEl = document.querySelector('select[name="purification_method"]');
+            const detailsSection = document.getElementById('method_details_section');
+            const detailsContent = document.getElementById('method_details_content');
+            const hiddenComments = document.getElementById('inspector_comments');
+
+            if (selectEl) {
+                selectEl.addEventListener('change', function() {
+                    const method = this.value;
+                    if (method && methodDetails[method]) {
+                        const d = methodDetails[method];
+                        detailsContent.innerHTML = `
+                            <p style="margin-bottom: 0.5rem;"><strong>What is it?</strong> ${d.what}</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>What is it used for?</strong> ${d.used_for}</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>How does it help with water quality?</strong> ${d.wq_help}</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>How should it be used?</strong> ${d.use}</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>Important precautions:</strong> ${d.precautions}</p>
+                            <p style="margin-bottom: 0px;"><strong>Maintenance requirements:</strong> ${d.maintenance}</p>
+                        `;
+                        detailsSection.style.display = 'block';
+                        
+                        hiddenComments.value = `Method details for ${method}:
+- Description: ${d.what}
+- Used for: ${d.used_for}
+- Water Quality Impact: ${d.wq_help}
+- Instructions: ${d.use}
+- Precautions: ${d.precautions}
+- Maintenance: ${d.maintenance}`;
+                    } else {
+                        detailsSection.style.display = 'none';
+                        detailsContent.innerHTML = '';
+                        hiddenComments.value = '';
+                    }
+                });
+            }
+
+            document.getElementById('onlineInspectionForm').addEventListener('submit', function(e) {
+                const recPrec = document.querySelector('[name="recommended_precautions"]').value.trim();
+                const purifMethod = document.querySelector('[name="purification_method"]').value;
+                const finalRec = document.querySelector('[name="final_recommendation"]').value;
+                const follUpReq = document.querySelector('[name="follow_up_required"]').value;
+                const follUpDate = document.querySelector('[name="follow_up_date"]').value;
+
+                let valid = true;
+                if (!recPrec || !purifMethod || !finalRec || !follUpReq) {
+                    valid = false;
+                }
+                if (follUpReq === 'Yes' && !follUpDate) {
+                    valid = false;
+                }
+
+                if (!valid) {
+                    e.preventDefault();
+                    alert("Please complete all required fields before submitting the inspection.");
+                    return false;
+                }
+            });
+        </script>
+
+        <!-- Final Recommendation & Submit -->
+        <div class="glass-card" style="margin-bottom: 2rem; border-left: 4px solid var(--accent-primary);">
+            <h3 style="margin-bottom: 1rem;"><i class="fa-solid fa-check-double"></i> Conclusion</h3>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label style="font-weight: 500;">Final Recommendation</label>
+                <select name="final_recommendation" class="form-control" required style="font-weight: bold; font-size: 1.1rem; padding: 0.75rem;">
+                    <option value="">Select Final Recommendation...</option>
+                    <option value="Safe for Drinking">Safe for Drinking</option>
+                    <option value="Safe After Treatment">Safe After Treatment</option>
+                    <option value="Not Safe for Drinking">Not Safe for Drinking</option>
+                    <option value="Requires Laboratory Testing">Requires Laboratory Testing</option>
+                    <option value="Use Alternative Water Source">Use Alternative Water Source</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 1rem;">
+                <i class="fa-solid fa-paper-plane"></i> Submit Recommendation
+            </button>
+        </div>
+    </form>
+    {% elif details.online_status == 'Completed' and details.existing_findings %}
+        <!-- Display Existing Findings for Completed Inspection -->
+        <div class="glass-card" style="margin-bottom: 2rem; border-left: 4px solid #10b981;">
+            <h3 style="margin-bottom: 1rem; color: #10b981;"><i class="fa-solid fa-clipboard-check"></i> Submitted Online Inspection Assessment</h3>
+            <p style="margin-bottom: 0.75rem;"><strong>Final Recommendation:</strong> <span class="badge badge-success">{{ details.existing_findings.final_recommendation or 'Completed' }}</span></p>
+            <p style="margin-bottom: 0.75rem;"><strong>Recommended Precautions:</strong> {{ details.existing_findings.recommended_precautions or 'N/A' }}</p>
+            <p style="margin-bottom: 0.75rem;"><strong>Purification Method:</strong> {{ details.existing_findings.purification_method or 'N/A' }}</p>
+            <p style="margin-bottom: 0.75rem;"><strong>Follow-up Required:</strong> {{ details.existing_findings.follow_up_required or 'No' }} {% if details.existing_findings.follow_up_date %}(Date: {{ details.existing_findings.follow_up_date }}){% endif %}</p>
+        </div>
+    {% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2>Contact Messages</h2>
+        <p style="color: var(--text-secondary);">Manage inquiries submitted via the Contact page</p>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline"><i class="fa-solid fa-chart-line"></i> View Predictions</a>
+        <a href="{{ url_for('admin_logout') }}" class="btn btn-outline" style="color: var(--danger); border-color: var(--danger);">Logout Admin</a>
+    </div>
+</div>
+
+<div class="glass-card" style="overflow-x: auto;">
+    <h3 style="margin-bottom: 1.5rem;">Recent Messages</h3>
+    {% if messages %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1rem; color: var(--text-secondary);">Date</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Name</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Email</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Subject</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Message</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Status</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in messages %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);" class="table-row-hover">
+                <td style="padding: 1rem; white-space: nowrap;">{{ item.created_at|safe_strftime('%Y-%m-%d %H:%M') }}</td>
+                <td style="padding: 1rem;">{{ item.name }}</td>
+                <td style="padding: 1rem;">
+                    <a href="mailto:{{ item.email }}" style="color: var(--accent-primary);">{{ item.email }}</a>
+                </td>
+                <td style="padding: 1rem; font-weight: 500;">{{ item.subject }}</td>
+                <td style="padding: 1rem; max-width: 300px;">
+                    <div style="overflow-y: auto; max-height: 100px; padding-right: 5px;">{{ item.message }}</div>
+                </td>
+                <td style="padding: 1rem;">
+                    <span class="badge badge-{{ 'success' if item.status == 'Replied' else 'warning' }}">
+                        {{ item.status }}
+                    </span>
+                </td>
+                <td style="padding: 1rem; white-space: nowrap;">
+                    {% if item.status != 'Replied' %}
+                    <button class="btn btn-outline" onclick="openReplyModal('{{ item.get('id') }}')" style="padding: 0.25rem 0.5rem; color: var(--accent-primary); border-color: var(--accent-primary);"><i class="fa-solid fa-reply"></i> Reply</button>
+                    {% else %}
+                    <button class="btn btn-outline" onclick="openReplyModal('{{ item.get('id') }}')" style="padding: 0.25rem 0.5rem; color: var(--success); border-color: var(--success);"><i class="fa-solid fa-eye"></i> View</button>
+                    {% endif %}
+                    <form action="{{ url_for('admin_delete_message', msg_id=item.get('id')) }}" method="POST" style="display:inline;" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this message?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-outline" style="padding: 0.25rem 0.5rem; color: var(--danger); border-color: var(--danger);"><i class="fa-solid fa-trash"></i> Delete</button>
+                    </form>
+                </td>
+            </tr>
+            
+            <!-- Reply Modal -->
+            <div id="reply-modal-{{ item.get('id') }}" class="modal" style="display: none; position: fixed; z-index: 1050; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+                <div class="glass-card" style="margin: auto; width: 90%; max-width: 600px; padding: 2rem; position: relative;">
+                    <span onclick="closeReplyModal('{{ item.get('id') }}')" style="position: absolute; right: 1.5rem; top: 1.5rem; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</span>
+                    
+                    <h3 style="margin-bottom: 1rem;"><i class="fa-solid fa-reply"></i> Reply to {{ item.name }}</h3>
+                    
+                    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;"><strong>Subject:</strong> {{ item.subject }}</p>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;"><strong>Message:</strong><br>{{ item.message }}</p>
+                    </div>
+                    
+                    <form action="{{ url_for('admin_reply_message', msg_id=item.get('id')) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        
+                        <div class="form-group">
+                            <label>Your Reply Message</label>
+                            <textarea name="reply_message" class="form-control" rows="6" required {% if item.status == 'Replied' %}disabled{% endif %} placeholder="Write your professional reply here...">{{ item.reply_message if item.reply_message else '' }}</textarea>
+                        </div>
+                        
+                        {% if item.status != 'Replied' %}
+                        <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+                            <button type="button" class="btn btn-outline" onclick="closeReplyModal('{{ item.get('id') }}')">Cancel</button>
+                            <button type="submit" class="btn btn-primary" onclick="showLoader()"><i class="fa-solid fa-paper-plane"></i> Send Reply</button>
+                        </div>
+                        {% else %}
+                        <p style="color: var(--success); font-size: 0.85rem; text-align: center; margin-top: 1rem;">
+                            <i class="fa-solid fa-check-circle"></i> Replied on {{ item.reply_date|safe_strftime('%Y-%m-%d %H:%M') if item.reply_date else 'Unknown' }}
+                        </p>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No contact messages found.</p>
+    {% endif %}
+</div>
+
+<script>
+    function openReplyModal(id) {
+        document.getElementById('reply-modal-' + id).style.display = 'flex';
+    }
+    
+    function closeReplyModal(id) {
+        document.getElementById('reply-modal-' + id).style.display = 'none';
+    }
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = "none";
+        }
+    }
+</script>
+{% endblock %}

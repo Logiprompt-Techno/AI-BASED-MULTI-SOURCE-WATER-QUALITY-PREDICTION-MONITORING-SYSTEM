@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}Book Inspection | AquaGuard AI{% endblock %}
+
+{% block content %}
+<!-- Leaflet Map CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="predict-container">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h2><i class="fa-solid fa-calendar-plus" style="color: var(--accent-primary);"></i> Book Water Quality Inspection</h2>
+        <p style="color: var(--text-secondary);">Schedule a professional inspection and pin your exact water source location</p>
+    </div>
+
+    <div class="glass-card" style="margin-bottom: 2rem; background: rgba(220, 38, 38, 0.1); border-color: rgba(220, 38, 38, 0.3);">
+        <h4 style="color: var(--danger); margin-bottom: 0.5rem;"><i class="fa-solid fa-triangle-exclamation"></i> Warning: {{ prediction.prediction }}</h4>
+        <p>Your recent test on <strong>{{ prediction.water_source }}</strong> indicated unsafe water quality with a WQI of {{ wqi }} ({{ wqi_cat }}). Please provide your location details below to arrange an on-site inspection.</p>
+    </div>
+
+    <form id="bookingForm" action="{{ url_for('book_appointment', prediction_id=prediction.get('id')) }}" method="POST" class="glass-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        
+        <!-- Inspection Type Selection -->
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label for="inspection_type"><i class="fa-solid fa-sliders"></i> Inspection Type <span style="color:red;">*</span></label>
+            <select id="inspection_type" name="inspection_type" class="form-control" required style="padding: 0.55rem; width: 100%; font-size: 0.95rem;">
+                <option value="Online Inspection">Online Inspection</option>
+                <option value="Field Inspection" selected>Field Inspection</option>
+                <option value="Both Online & Field Inspection">Both Online & Field Inspection</option>
+            </select>
+        </div>
+
+        <!-- Dynamic Date & Time Section -->
+        <div id="datetime_container">
+            <!-- Online Date & Time Block -->
+            <div id="online_datetime_block" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--glass-border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; display: none;">
+                <h5 style="color: #60a5fa; margin-bottom: 1rem; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">
+                    <i class="fa-solid fa-laptop"></i> Online Inspection Date & Time
+                </h5>
+                <div class="predict-grid">
+                    <div class="form-group">
+                        <label for="online_date"><i class="fa-solid fa-calendar"></i> Online Preferred Date <span style="color:red;">*</span></label>
+                        <input type="date" id="online_date" name="online_date" class="form-control" min="{{ today }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="online_time"><i class="fa-solid fa-clock"></i> Online Preferred Time <span style="color:red;">*</span></label>
+                        <input type="time" id="online_time" name="online_time" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Field Date & Time Block -->
+            <div id="field_datetime_block" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--glass-border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; display: none;">
+                <h5 style="color: #34d399; margin-bottom: 1rem; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">
+                    <i class="fa-solid fa-compass"></i> Field Inspection Date & Time
+                </h5>
+                <div class="predict-grid">
+                    <div class="form-group">
+                        <label for="field_date"><i class="fa-solid fa-calendar"></i> Field Preferred Date <span style="color:red;">*</span></label>
+                        <input type="date" id="field_date" name="field_date" class="form-control" min="{{ today }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="field_time"><i class="fa-solid fa-clock"></i> Field Preferred Time <span style="color:red;">*</span></label>
+                        <input type="time" id="field_time" name="field_time" class="form-control">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inspection Location Map Section -->
+        <div class="form-group" style="margin-top: 2rem; background: rgba(15, 23, 42, 0.4); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--glass-border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                <label style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin: 0;">
+                    <i class="fa-solid fa-map-location-dot" style="color: var(--accent-primary);"></i> Inspection Location
+                </label>
+                <button type="button" id="useCurrentLocationBtn" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem;">
+                    <i class="fa-solid fa-location-crosshairs" style="color: #60a5fa;"></i> Use My Current Location
+                </button>
+            </div>
+            
+            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">
+                Click on the map or drag the pin marker to specify the exact spot where the water sample/inspection needs to be conducted.
+            </p>
+
+            <div style="margin-bottom: 1rem;">
+                <label for="address" style="font-size: 0.9rem; color: var(--text-secondary);"><i class="fa-solid fa-location-dot"></i> Address / Location Details <span style="color:red;">*</span></label>
+                <textarea id="address" name="address" class="form-control" rows="2" required placeholder="Enter building name, street, locality, or landmark..."></textarea>
+            </div>
+
+            <!-- Leaflet Interactive Map -->
+            <div id="bookingMap" style="height: 380px; width: 100%; border-radius: 10px; border: 1px solid var(--glass-border); box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 1;"></div>
+
+            <!-- Hidden Location Coordinates -->
+            <input type="hidden" id="latitude" name="latitude" required>
+            <input type="hidden" id="longitude" name="longitude" required>
+
+            <div style="margin-top: 1rem; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.85rem 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <span style="color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; display: block; letter-spacing: 0.5px;">SELECTED COORDINATES:</span>
+                    <span id="selectedCoordsDisplay" style="color: #60a5fa; font-weight: 600; font-size: 0.95rem;">
+                        <i class="fa-solid fa-circle-exclamation" style="color: var(--warning);"></i> Pin your location on the map above
+                    </span>
+                </div>
+                <button type="button" id="confirmLocationBtn" class="btn btn-outline" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; color: var(--success); border-color: var(--success); display: inline-flex; align-items: center; gap: 0.4rem;">
+                    <i class="fa-solid fa-circle-check"></i> Confirm Location
+                </button>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 1.5rem;">
+            <label for="issue"><i class="fa-solid fa-comment-medical"></i> Issue Description (Optional)</label>
+            <textarea id="issue" name="issue" class="form-control" rows="2" placeholder="Describe any specific observations like smell, color, unusual taste, etc."></textarea>
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; justify-content: center;">
+            <button type="submit" class="btn btn-primary" style="background-color: var(--danger); border-color: var(--danger); font-size: 1.05rem; padding: 0.75rem 2rem;">
+                <i class="fa-solid fa-calendar-check"></i> Confirm & Book Inspector
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Default Center (India default)
+    let defaultLat = 20.5937;
+    let defaultLng = 78.9629;
+    let zoomLevel = 5;
+
+    // Initialize Map
+    const map = L.map('bookingMap').setView([defaultLat, defaultLng], zoomLevel);
+
+    // Add Tile Layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    let marker = null;
+
+    function updateLocationFields(lat, lng, addressText = null) {
+        document.getElementById('latitude').value = lat.toFixed(6);
+        document.getElementById('longitude').value = lng.toFixed(6);
+        document.getElementById('selectedCoordsDisplay').innerHTML = `<i class="fa-solid fa-location-dot" style="color: var(--danger);"></i> Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}`;
+
+        if (addressText) {
+            document.getElementById('address').value = addressText;
+        } else if (!document.getElementById('address').value.trim()) {
+            // Reverse Geocoding via Nominatim
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        document.getElementById('address').value = data.display_name;
+                    }
+                })
+                .catch(err => {
+                    console.log("Geocoding fetch error:", err);
+                });
+        }
+    }
+
+    function setMarkerPosition(lat, lng) {
+        if (marker) {
+            marker.setLatLng([lat, lng]);
+        } else {
+            marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+            marker.on('dragend', function(e) {
+                const pos = marker.getLatLng();
+                updateLocationFields(pos.lat, pos.lng);
+            });
+        }
+        updateLocationFields(lat, lng);
+    }
+
+    // Map Click Listener
+    map.on('click', function(e) {
+        setMarkerPosition(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Use Current Location Button Listener
+    document.getElementById('useCurrentLocationBtn').addEventListener('click', function() {
+        if (navigator.geolocation) {
+            const btn = this;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Locating...';
+            btn.disabled = true;
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    map.setView([lat, lng], 15);
+                    setMarkerPosition(lat, lng);
+                    btn.innerHTML = '<i class="fa-solid fa-location-crosshairs" style="color: #60a5fa;"></i> Use My Current Location';
+                    btn.disabled = false;
+                },
+                function(error) {
+                    alert("Unable to retrieve your current location. Please click directly on the map to pin your location.");
+                    btn.innerHTML = '<i class="fa-solid fa-location-crosshairs" style="color: #60a5fa;"></i> Use My Current Location';
+                    btn.disabled = false;
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } else {
+            alert("Geolocation is not supported by your browser. Please click directly on the map to pin your location.");
+        }
+    });
+
+    // Confirm Location Button Listener
+    document.getElementById('confirmLocationBtn').addEventListener('click', function() {
+        const lat = document.getElementById('latitude').value;
+        const lng = document.getElementById('longitude').value;
+        const addr = document.getElementById('address').value.trim();
+
+        if (!lat || !lng) {
+            alert("Please click on the map to pin your location first.");
+            return;
+        }
+        if (!addr) {
+            alert("Please enter the location address details.");
+            document.getElementById('address').focus();
+            return;
+        }
+
+        alert(`Location Confirmed!\n\nCoordinates: Lat ${lat}, Lng ${lng}\nAddress: ${addr}`);
+    });
+
+    // Dynamic Inspection Type Date/Time Toggle
+    function updateInspectionTypeFields() {
+        const typeSelect = document.getElementById('inspection_type');
+        if (!typeSelect) return;
+        const type = typeSelect.value;
+        const onlineBlock = document.getElementById('online_datetime_block');
+        const fieldBlock = document.getElementById('field_datetime_block');
+
+        const onlineDate = document.getElementById('online_date');
+        const onlineTime = document.getElementById('online_time');
+        const fieldDate = document.getElementById('field_date');
+        const fieldTime = document.getElementById('field_time');
+
+        if (type === 'Online Inspection') {
+            if (onlineBlock) onlineBlock.style.display = 'block';
+            if (fieldBlock) fieldBlock.style.display = 'none';
+
+            if (onlineDate) { onlineDate.required = true; onlineDate.disabled = false; }
+            if (onlineTime) { onlineTime.required = true; onlineTime.disabled = false; }
+
+            if (fieldDate) { fieldDate.required = false; fieldDate.disabled = true; }
+            if (fieldTime) { fieldTime.required = false; fieldTime.disabled = true; }
+        } else if (type === 'Field Inspection') {
+            if (onlineBlock) onlineBlock.style.display = 'none';
+            if (fieldBlock) fieldBlock.style.display = 'block';
+
+            if (onlineDate) { onlineDate.required = false; onlineDate.disabled = true; }
+            if (onlineTime) { onlineTime.required = false; onlineTime.disabled = true; }
+
+            if (fieldDate) { fieldDate.required = true; fieldDate.disabled = false; }
+            if (fieldTime) { fieldTime.required = true; fieldTime.disabled = false; }
+        } else if (type === 'Both Online & Field Inspection') {
+            if (onlineBlock) onlineBlock.style.display = 'block';
+            if (fieldBlock) fieldBlock.style.display = 'block';
+
+            if (onlineDate) { onlineDate.required = true; onlineDate.disabled = false; }
+            if (onlineTime) { onlineTime.required = true; onlineTime.disabled = false; }
+
+            if (fieldDate) { fieldDate.required = true; fieldDate.disabled = false; }
+            if (fieldTime) { fieldTime.required = true; fieldTime.disabled = false; }
+        }
+    }
+
+    const typeSelect = document.getElementById('inspection_type');
+    if (typeSelect) {
+        typeSelect.addEventListener('change', updateInspectionTypeFields);
+        updateInspectionTypeFields();
+    }
+
+    // Form Submission Validation
+    document.getElementById('bookingForm').addEventListener('submit', function(e) {
+        const type = typeSelect ? typeSelect.value : 'Field Inspection';
+        const onlineDate = document.getElementById('online_date') ? document.getElementById('online_date').value : '';
+        const onlineTime = document.getElementById('online_time') ? document.getElementById('online_time').value : '';
+        const fieldDate = document.getElementById('field_date') ? document.getElementById('field_date').value : '';
+        const fieldTime = document.getElementById('field_time') ? document.getElementById('field_time').value : '';
+
+        if (type === 'Online Inspection') {
+            if (!onlineDate || !onlineTime) {
+                e.preventDefault();
+                alert("Please select both Online Date and Online Time.");
+                return false;
+            }
+        } else if (type === 'Field Inspection') {
+            if (!fieldDate || !fieldTime) {
+                e.preventDefault();
+                alert("Please select both Field Date and Field Time.");
+                return false;
+            }
+        } else if (type === 'Both Online & Field Inspection') {
+            if (!onlineDate || !onlineTime) {
+                e.preventDefault();
+                alert("Please select both Online Date and Online Time.");
+                return false;
+            }
+            if (!fieldDate || !fieldTime) {
+                e.preventDefault();
+                alert("Please select both Field Date and Field Time.");
+                return false;
+            }
+        }
+
+        const lat = document.getElementById('latitude').value;
+        const lng = document.getElementById('longitude').value;
+        const addr = document.getElementById('address').value.trim();
+
+        if (!lat || !lng) {
+            e.preventDefault();
+            alert("Please select and confirm your inspection location on the map before booking.");
+            return false;
+        }
+        if (!addr) {
+            e.preventDefault();
+            alert("Please enter the full inspection address.");
+            document.getElementById('address').focus();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

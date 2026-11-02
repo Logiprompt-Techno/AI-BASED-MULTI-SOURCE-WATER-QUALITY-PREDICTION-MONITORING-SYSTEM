@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .validation-message {
+        color: #ff4d4f;
+        font-size: 0.85rem;
+        margin-top: 4px;
+        display: none;
+    }
+    .form-control.invalid {
+        border-color: #ff4d4f;
+    }
+    .form-control.valid {
+        border-color: #52c41a;
+    }
+</style>
+
+<div class="auth-container glass-card">
+    <div class="auth-header">
+        <h2>Login</h2>
+        <p>Welcome back to AquaGuard AI</p>
+    </div>
+    
+    <form action="{{ url_for('login') }}" method="POST" id="loginForm" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        
+        <div class="form-group">
+            <label for="email">Email Address or Phone Number</label>
+            <input type="text" id="email" name="email" class="form-control" required placeholder="Enter your email or 10-digit phone number" value="{{ request.form.get('email', '') }}">
+            <div class="validation-message" id="emailError">Please enter a valid email or 10-digit phone number.</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <div style="position: relative;">
+                <input type="password" id="password" name="password" class="form-control" style="padding-right: 2.5rem;" required placeholder="Enter your password">
+                <i class="fa-solid fa-eye toggle-password" data-target="password" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-secondary);" title="Toggle password visibility"></i>
+            </div>
+            <div class="validation-message" id="passwordError">Password cannot be empty.</div>
+            <div style="text-align: right; margin-top: 0.5rem;">
+                <a href="{{ url_for('forgot_password') }}" id="forgotPasswordLink" style="color: var(--accent-primary); font-size: 0.875rem; text-decoration: none;">Forgot Password?</a>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-block" id="submitBtn" disabled>Login</button>
+    </form>
+    
+    <p style="text-align: center; margin-top: 1.5rem; color: var(--text-secondary);">
+        Don't have an account? <a href="{{ url_for('register') }}" style="color: var(--accent-primary);">Register here</a>
+    </p>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById("loginForm");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const submitBtn = document.getElementById("submitBtn");
+
+    document.querySelectorAll(".toggle-password").forEach(icon => {
+        icon.addEventListener("click", function() {
+            const targetId = this.getAttribute("data-target");
+            const input = document.getElementById(targetId);
+            if (input.type === "password") {
+                input.type = "text";
+                this.classList.remove("fa-eye");
+                this.classList.add("fa-eye-slash");
+            } else {
+                input.type = "password";
+                this.classList.remove("fa-eye-slash");
+                this.classList.add("fa-eye");
+            }
+        });
+    });
+
+    const validateEmailOrPhone = () => {
+        const val = emailInput.value.trim();
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+        const isPhone = /^[6-9][0-9]{9}$/.test(val);
+        const isValid = isEmail || isPhone;
+        
+        toggleValidation(emailInput, "emailError", isValid, val === "");
+        return isValid;
+    };
+
+    const validatePassword = () => {
+        const isValid = passwordInput.value.trim().length > 0;
+        toggleValidation(passwordInput, "passwordError", isValid, passwordInput.value.trim() === "");
+        return isValid;
+    };
+
+    const toggleValidation = (input, errorId, isValid, isEmpty) => {
+        const errorEl = document.getElementById(errorId);
+        if (isEmpty) {
+            input.classList.remove("invalid", "valid");
+            errorEl.style.display = "none";
+        } else if (isValid) {
+            input.classList.remove("invalid");
+            input.classList.add("valid");
+            errorEl.style.display = "none";
+        } else {
+            input.classList.remove("valid");
+            input.classList.add("invalid");
+            errorEl.style.display = "block";
+        }
+    };
+
+    const checkFormValidity = () => {
+        const isValid = validateEmailOrPhone() && validatePassword();
+        submitBtn.disabled = !isValid;
+    };
+
+    // Add event listeners for real-time validation
+    emailInput.addEventListener("input", () => { validateEmailOrPhone(); checkFormValidity(); });
+    passwordInput.addEventListener("input", () => { validatePassword(); checkFormValidity(); });
+    
+    // Initial check in case of pre-filled values
+    if (emailInput.value) {
+        checkFormValidity();
+    }
+});
+</script>
+{% endblock %}

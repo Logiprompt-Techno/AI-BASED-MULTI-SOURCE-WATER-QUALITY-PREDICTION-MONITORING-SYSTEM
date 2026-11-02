@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2>AI Monitoring Dashboard</h2>
+        <p style="color: var(--text-secondary);">Overview of your water quality predictions</p>
+    </div>
+    <div style="display: flex; gap: 0.5rem;" class="export-buttons">
+        {% if stats.history %}
+        <a href="{{ url_for('download_report', prediction_id=stats.history[0].id) }}" class="btn btn-outline"><i class="fa-solid fa-file-pdf"></i> PDF</a>
+        {% else %}
+        <button disabled class="btn btn-outline" style="opacity: 0.5; cursor: not-allowed;"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+        {% endif %}
+        <a href="{{ url_for('export_csv') }}" class="btn btn-outline"><i class="fa-solid fa-file-csv"></i> CSV</a>
+        <a href="{{ url_for('export_excel') }}" class="btn btn-outline"><i class="fa-solid fa-file-excel"></i> Excel</a>
+    </div>
+</div>
+
+<!-- Stats Overview -->
+<div class="dashboard-stats" id="reportContent">
+    <div class="stat-card glass-card">
+        <h3>Total Predictions</h3>
+        <div class="value" style="color: var(--accent-primary);">{{ stats.total }}</div>
+    </div>
+    <div class="stat-card glass-card">
+        <h3>Safe Water</h3>
+        <div class="value safe">{{ stats.safe }}</div>
+    </div>
+    <div class="stat-card glass-card">
+        <h3>Unsafe Water</h3>
+        <div class="value unsafe">{{ stats.unsafe }}</div>
+    </div>
+    <div class="stat-card glass-card">
+        <h3>Average WQI</h3>
+        <div class="value" style="color: #8b5cf6;">{{ stats.avg_wqi }}</div>
+    </div>
+    <div class="stat-card glass-card">
+        <h3>Model Accuracy</h3>
+        <div style="display: flex; align-items: center; justify-content: center; margin: 15px 0;">
+            <div style="width: 70px; height: 70px; border-radius: 50%; background: conic-gradient(var(--accent-primary) {{ stats.model_accuracy }}%, transparent 0); display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,0.1);">
+                <div style="width: 58px; height: 58px; border-radius: 50%; background: var(--glass-bg); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; color: #fff;">
+                    {{ stats.model_accuracy }}%
+                </div>
+            </div>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary); text-align: center;">Updated: Today</div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="charts-grid" style="margin-bottom: 2rem;">
+    <div class="glass-card">
+        <h3 style="margin-bottom: 1.5rem; text-align: center;">Safety Overview</h3>
+        <div class="chart-container">
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="glass-card">
+        <h3 style="margin-bottom: 1.5rem; text-align: center;">Monthly Predictions</h3>
+        <div class="chart-container">
+            <canvas id="monthlyChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="glass-card">
+        <h3 style="margin-bottom: 1.5rem; text-align: center;">WQI Trend</h3>
+        <div class="chart-container">
+            <canvas id="wqiTrendChart"></canvas>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <h3 style="margin-bottom: 1.5rem; text-align: center;">Parameter Averages</h3>
+        <div class="chart-container">
+            <canvas id="paramChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent History -->
+<div class="glass-card" style="overflow-x: auto;">
+    <h3 style="margin-bottom: 1.5rem;">Recent Predictions</h3>
+    {% if stats.history %}
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1rem; color: var(--text-secondary);">Date</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Source</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Data Source</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Pollution</th>
+                <th style="padding: 1rem; color: var(--text-secondary);">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in stats.history %}
+            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                <td style="padding: 1rem;">{{ item.timestamp|safe_strftime('%Y-%m-%d %H:%M') }}</td>
+                <td style="padding: 1rem;">{{ item.source }}</td>
+                <td style="padding: 1rem;">
+                    {% if item.prediction_source == 'Laboratory PDF' %}
+                    <span class="badge badge-info" style="font-size: 0.75rem;"><i class="fa-solid fa-file-pdf"></i> PDF</span>
+                    {% else %}
+                    <span class="badge" style="background: rgba(255,255,255,0.1); color: var(--text-secondary); font-size: 0.75rem;">Manual</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    <span style="font-size: 0.875rem; padding: 0.25rem 0.5rem; border-radius: 1rem; 
+                    background: {{ 'rgba(16,185,129,0.1)' if item.pollution_level == 'Low' else ('rgba(245,158,11,0.1)' if item.pollution_level == 'Medium' else 'rgba(239,68,68,0.1)') }};
+                    color: {{ 'var(--success)' if item.pollution_level == 'Low' else ('var(--warning)' if item.pollution_level == 'Medium' else 'var(--danger)') }}">
+                        {{ item.pollution_level }} Pollution
+                    </span>
+                </td>
+                <td style="padding: 1rem; font-weight: 600; color: {{ 'var(--success)' if item.status == 'SAFE' else 'var(--danger)' }}">
+                    {{ item.status }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No predictions found. <a href="{{ url_for('predict') }}" style="color: var(--accent-primary);">Make your first prediction!</a></p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Pass stats data to our custom script to render charts
+    const statsData = {
+        total: {{ stats.total }},
+        safe: {{ stats.safe }},
+        unsafe: {{ stats.unsafe }},
+        sources: {{ stats.sources | tojson | safe }},
+        monthly: {{ stats.monthly | tojson | safe }},
+        wqi_trend: {{ stats.wqi_trend | tojson | safe }},
+        param_comparison: {{ stats.param_comparison | tojson | safe }}
+    };
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        if(typeof renderCharts === 'function') {
+            renderCharts(statsData);
+        }
+    });
+</script>
+{% endblock %}
